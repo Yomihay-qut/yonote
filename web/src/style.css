@@ -55,6 +55,12 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
+:root[lang='ja'] {
+  font-family: Inter, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Meiryo', system-ui, sans-serif;
+}
+:root[lang='ko'] {
+  font-family: Inter, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', system-ui, sans-serif;
+}
 :root[data-theme='light'],
 .export-paper[data-theme='light'] {
   color-scheme: light;

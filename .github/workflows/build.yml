@@ -208,7 +208,7 @@ jobs:
         run: |
           mkdir -p release bundle/deploy
           cp -a deploy/. bundle/deploy/
-          cp README.md LICENSE bundle/
+          cp README.md README.en.md README.ja.md README.ko.md LICENSE bundle/
           if [ -f artifacts/android/yonote.apk ]; then
             cp artifacts/android/yonote.apk "release/yonote-android-${GITHUB_REF_NAME}.apk"
           fi
@@ -224,9 +224,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG_NOTES="$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")"
+          TAG_NOTES="$(git for-each-ref --format='%(contents)' "refs/tags/$GITHUB_REF_NAME")"
           if [ -n "$TAG_NOTES" ]; then
-            gh release create "$GITHUB_REF_NAME" release/* --title "便签 $GITHUB_REF_NAME" --notes "$TAG_NOTES"
+            gh release create "$GITHUB_REF_NAME" release/* --title "Yonote $GITHUB_REF_NAME" --notes "$TAG_NOTES"
           else
-            gh release create "$GITHUB_REF_NAME" release/* --title "便签 $GITHUB_REF_NAME" --generate-notes
+            gh release create "$GITHUB_REF_NAME" release/* --title "Yonote $GITHUB_REF_NAME" --generate-notes
           fi

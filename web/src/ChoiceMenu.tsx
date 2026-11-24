@@ -1,4 +1,5 @@
 import { useId, useRef, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check, ChevronDown, Folder } from 'lucide-react'
 import { FluidPopover } from './FluidPopover'
 import type { LocalRecord } from './types'
@@ -71,12 +72,13 @@ export function ChoiceMenu({
 export function FolderPicker({
   folders, value, ...props
 }: Omit<Parameters<typeof ChoiceMenu>[0], 'choices'> & { folders: LocalRecord[] }) {
+  const { t } = useTranslation()
   const current = value && !folders.some((folder) => folder.id === value) ? '' : value
   return <ChoiceMenu {...props} value={current} choices={[
-    { value: '', label: '默认', icon: <Folder size={16} /> },
+    { value: '', label: t('common.default'), icon: <Folder size={16} /> },
     ...folders.map((folder) => ({
       value: folder.id,
-      label: folder.value.name || '未命名文件夹',
+      label: folder.value.name || t('nav.unnamedFolder'),
       icon: <Folder size={16} style={{ color: folder.value.color }} />,
     })),
   ]} />

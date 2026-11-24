@@ -2,10 +2,13 @@ import { Node, mergeAttributes } from '@tiptap/core'
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from '@tiptap/react'
 import { Image as ImageExtension } from '@tiptap/extension-image'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Download, FileText, LoaderCircle, ImageOff } from 'lucide-react'
+import i18n from './i18n'
 import { useAttachment, formatBytes } from './media'
 import { ImageViewer } from './ImageViewer'
 function ImageView({ node, selected }: NodeViewProps) {
+  const { t } = useTranslation()
   const { url, error } = useAttachment(node.attrs.attachmentId)
   const [preview, setPreview] = useState(false)
   return (
@@ -13,13 +16,13 @@ function ImageView({ node, selected }: NodeViewProps) {
       {url ? (
         <img
           src={url}
-          alt={node.attrs.alt || '图片'}
+          alt={node.attrs.alt || t('media.imageAlt')}
           loading="lazy"
           decoding="async"
           onClick={() => setPreview(true)}
           role="button"
           tabIndex={0}
-          aria-label="查看图片"
+          aria-label={t('media.viewImage')}
           onKeyDown={(e) => {
             if (e.key === 'Enter') setPreview(true)
           }}
@@ -32,13 +35,13 @@ function ImageView({ node, selected }: NodeViewProps) {
       ) : (
         <div className="attachment-loading">
           <LoaderCircle className="spin" size={20} />
-          正在读取图片
+          {t('media.loadingImage')}
         </div>
       )}
       {preview && url && (
         <ImageViewer
           url={url}
-          name={node.attrs.alt || '图片.png'}
+          name={node.attrs.alt || t('media.imageFileDefault')}
           onClose={() => setPreview(false)}
         />
       )}
@@ -46,7 +49,9 @@ function ImageView({ node, selected }: NodeViewProps) {
   )
 }
 function FileView({ node, selected }: NodeViewProps) {
+  const { t } = useTranslation()
   const { url, error } = useAttachment(node.attrs.attachmentId)
+  const displayName = node.attrs.name || t('media.attachment')
   return (
     <NodeViewWrapper
       className={'file-attachment ' + (selected ? 'selected' : '')}
@@ -56,19 +61,19 @@ function FileView({ node, selected }: NodeViewProps) {
         <FileText size={22} />
       </span>
       <span>
-        <strong>{node.attrs.name || '附件'}</strong>
+        <strong>{displayName}</strong>
         <small>{error || formatBytes(Number(node.attrs.size) || 0)}</small>
       </span>
       {url ? (
         <a
           href={url}
           download={node.attrs.name}
-          aria-label={'下载 ' + node.attrs.name}
+          aria-label={t('media.downloadAria', { name: displayName })}
           onClick={async (e) => {
             e.preventDefault()
             try {
               const { downloadBlob } = await import('./export')
-              await downloadBlob(await (await fetch(url)).blob(), node.attrs.name)
+              await downloadBlob(await (await fetch(url)).blob(), displayName)
             } catch {}
           }}
         >
@@ -90,7 +95,7 @@ export const LocalImage = ImageExtension.extend({
   renderMarkdown(node, helpers, context) {
     return this.parent?.({
       ...node,
-      attrs: { ...node.attrs, alt: node.attrs?.alt || '图片', src: 'attachments/' + node.attrs?.attachmentId },
+      attrs: { ...node.attrs, alt: node.attrs?.alt || i18n.t('media.imageAlt'), src: 'attachments/' + node.attrs?.attachmentId },
     }, helpers, context) ?? ''
   },
 }).configure({ allowBase64: false })
@@ -100,7 +105,7 @@ export const FileAttachment = Node.create({
   atom: true,
   draggable: true,
   addAttributes() {
-    return { attachmentId: { default: null }, name: { default: '附件' }, size: { default: 0 } }
+    return { attachmentId: { default: null }, name: { default: '' }, size: { default: 0 } }
   },
   parseHTML() {
     return [{ tag: 'div[data-attachment]' }]
@@ -109,14 +114,14 @@ export const FileAttachment = Node.create({
     return [
       'div',
       mergeAttributes(HTMLAttributes, { 'data-attachment': '' }),
-      HTMLAttributes.name || '附件',
+      HTMLAttributes.name || i18n.t('media.attachment'),
     ]
   },
   addNodeView() {
     return ReactNodeViewRenderer(FileView)
   },
   renderMarkdown(node) {
-    const name = String(node.attrs?.name || '附件').replace(/[\\[\]]/g, '\\$&')
+    const name = String(node.attrs?.name || i18n.t('media.attachment')).replace(/[\\[\]]/g, '\\$&')
     return '[' + name + '](attachments/' + node.attrs?.attachmentId + ')'
   },
 })

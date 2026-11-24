@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie'
+import i18n from './i18n'
 import { summarize } from './list-model'
 import { v7 as uuid } from 'uuid'
 import type {
@@ -53,8 +54,8 @@ export function normalizeBase(s: string) {
     u.protocol !== 'https:' &&
     !(u.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(u.hostname))
   )
-    throw Error('服务器请使用 HTTPS 地址')
-  if (u.username || u.password || u.search || u.hash) throw Error('请填写服务器首页地址')
+    throw Error(i18n.t('sync.httpsRequired'))
+  if (u.username || u.password || u.search || u.hash) throw Error(i18n.t('sync.homeUrlRequired'))
   return u.origin + u.pathname.replace(/\/+$/, '')
 }
 export function sessionRead(): Session | null {
@@ -322,7 +323,12 @@ export async function initialize(db: NoteDB, local: boolean) {
   await db.transaction('rw', db.records, db.summaries, db.outbox, db.meta, async () => {
     if (local)
       for (const module of ['note', 'todo'] as Module[]) {
-        for (const [i, name] of ['工作', '个人', '购物'].entries()) {
+        const defaults = [
+          i18n.t('folders.defaultWork'),
+          i18n.t('folders.defaultPersonal'),
+          i18n.t('folders.defaultShopping'),
+        ]
+        for (const [i, name] of defaults.entries()) {
           const id = uuid()
           await save(db, id, 'folder', {
             name,

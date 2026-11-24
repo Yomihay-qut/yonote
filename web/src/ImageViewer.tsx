@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type PointerEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Download, Maximize, Minus, Plus } from 'lucide-react'
 import { clamp, mix, Spring } from './motion'
 import { Modal, IconButton } from './ui'
@@ -87,8 +88,9 @@ export function ImageViewer({
   function end(pointer: number) {
     pointers.current.delete(pointer)
   }
+  const { t } = useTranslation()
   return (
-    <Modal title="图片" onClose={onClose} className="image-viewer" wide>
+    <Modal title={t('viewer.title')} onClose={onClose} className="image-viewer" wide>
       <div
         ref={stage}
         className="image-stage"
@@ -144,28 +146,28 @@ export function ImageViewer({
         <img ref={image} src={url} alt={name} draggable={false} />
       </div>
       <div className="viewer-toolbar glass">
-        <IconButton label="缩小图片" disabled={scale === 1} onClick={() => zoom(target.current - 0.5)}>
+        <IconButton label={t('viewer.zoomOut')} disabled={scale === 1} onClick={() => zoom(target.current - 0.5)}>
           <Minus size={20} />
         </IconButton>
-        <button className="zoom-label" onClick={() => zoom(1)} aria-label="图片原始比例">
+        <button className="zoom-label" onClick={() => zoom(1)} aria-label={t('viewer.actualSize')}>
           {Math.round(scale * 100)}%
         </button>
-        <IconButton label="放大图片" disabled={scale === 5} onClick={() => zoom(target.current + 0.5)}>
+        <IconButton label={t('viewer.zoomIn')} disabled={scale === 5} onClick={() => zoom(target.current + 0.5)}>
           <Plus size={20} />
         </IconButton>
         <span className="toolbar-divider" />
-        <IconButton label="适应屏幕" onClick={() => zoom(1)}>
+        <IconButton label={t('viewer.fitScreen')} onClick={() => zoom(1)}>
           <Maximize size={19} />
         </IconButton>
         <IconButton
-          label="保存图片"
+          label={t('viewer.saveImage')}
           onClick={async () => {
             try {
               const blob = await (await fetch(url)).blob()
               const { downloadBlob } = await import('./export')
-              await downloadBlob(blob, name || '图片.png')
+              await downloadBlob(blob, name || t('media.imageFileDefault'))
             } catch {
-              setError('保存失败，请重试')
+              setError(t('viewer.saveFailed'))
             }
           }}
         >

@@ -2,6 +2,16 @@
 
 All notable changes to Yonote will be documented in this file.
 
+## [v1.0.0] - 2026-11-24
+
+首个正式版里程碑，新增完整多语言国际化支持。
+
+### Added
+- **全端四语国际化（`zh-CN` / `en` / `ja` / `ko`）**：基于 `i18next` + `react-i18next` 实现简体中文、English、日本語、한국어 完整界面翻译；首次启动自动跟随系统/浏览器语言（未命中时默认简体中文），并可在「设置 → 外观」随时手动切换。
+- **全面区域化适配**：随语言实时联动 `<html lang>`、文档标题、中日韩原生系统字体栈、列表/编辑器/历史记录日期格式、导出与打印模板，以及后端常见错误提示的多语自动映射；新增 `i18n.test.ts` 自动化校验四语词条 Key 与插值占位符 100% 一致。
+- **Windows 安装向导四语支持**：NSIS 安装程序支持简体中文、English、日本語、한국어；客户端窗口标题同步适配多语环境。
+- **多语言仓库文档**：保留 [README.md](README.md) 默认简体中文，新增 [README.en.md](README.en.md)、[README.ja.md](README.ja.md) 与 [README.ko.md](README.ko.md) 并添加顶部语言导航栏。
+
 ## [v0.9.1] - 2026-11-24
 
 完善全端普通用户开箱体验与 Release 产物划分。

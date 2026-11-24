@@ -1,5 +1,7 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, type PointerEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check, GripVertical, Pin, Star } from 'lucide-react'
+import { currentLocale } from './i18n'
 import { AttachmentThumb } from './media'
 import { groupRecords, type Placement } from './list-model'
 import { animateMotion } from './motion'
@@ -25,13 +27,15 @@ type Props = {
   onPurge: (id: string) => void
   onReorder: (source: string, target: string, placement: Placement) => Promise<boolean>
 }
-export function cardDate(time: string) {
+export function cardDate(time: string, locale: string = currentLocale()) {
   const date = new Date(time)
   return date.toDateString() === new Date().toDateString()
-    ? date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-    : date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
+    ? date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+    : date.toLocaleDateString(locale, { month: 'numeric', day: 'numeric' })
 }
 export function RecordList({ records, grouped, view, transitionKey, onReorder, ...props }: Props) {
+  const { i18n: i18nInst } = useTranslation()
+  const activeLocale = i18nInst.resolvedLanguage || i18nInst.language
   const root = useRef<HTMLDivElement>(null)
   const mounted = useRef(false)
   const cascade = useRef<Animation[]>([])
@@ -39,8 +43,8 @@ export function RecordList({ records, grouped, view, transitionKey, onReorder, .
   const manual = props.manual && !props.selecting && !props.trash
   const { ordered, held, handlers } = useRecordDrag(root, records, manual, grid, onReorder)
   const groups = useMemo(
-    () => groupRecords(ordered, grouped && !props.manual),
-    [ordered, grouped, props.manual],
+    () => groupRecords(ordered, grouped && !props.manual, undefined, currentLocale()),
+    [ordered, grouped, props.manual, activeLocale],
   )
   const layoutKey = JSON.stringify([grid, ...groups.map((group) => [group.label, ...group.records.map((record) => record.id)])])
   useRecordLayout(root, layoutKey, held)
@@ -173,7 +177,11 @@ const RecordCard = memo(
       }
       press.current = state
     }
-    return (
+    const { t, i18n: cardI18n } = useTranslation()
+  const cardLocale = cardI18n.resolvedLanguage || cardI18n.language
+  const untitled = t(module === 'note' ? 'notes.untitledNote' : 'notes.untitledTodo')
+  const titleText = r.value.title || untitled
+  return (
       <div
         data-record-id={r.id}
         data-draggable={manual ? '' : undefined}
@@ -211,7 +219,7 @@ const RecordCard = memo(
             }
             onOpen(r.id)
           }}
-          aria-label={r.value.title || '未命名' + (module === 'note' ? '备忘' : '待办')}
+          aria-label={titleText}
         >
           {selecting ? (
             <span className="select-box">{checked.has(r.id) && <Check size={15} />}</span>
@@ -223,7 +231,7 @@ const RecordCard = memo(
               className={'todo-check ' + (r.value.done ? 'is-done' : '')}
               role="checkbox"
               aria-checked={!!r.value.done}
-              aria-label={'完成 ' + (r.value.title || '待办')}
+              aria-label={t('todo.completeAria', { title: r.value.title || t('todo.breadcrumb') })}
               onClick={(e) => {
                 e.stopPropagation()
                 onDone(r.id)
@@ -233,12 +241,12 @@ const RecordCard = memo(
             </span>
           )}
           <span className="card-copy">
-            <strong>{r.value.title || '未命名' + (module === 'note' ? '备忘' : '待办')}</strong>
+            <strong>{titleText}</strong>
             <span className="card-excerpt">
               {module === 'note' ? r.value.plainText?.trim() || '' : r.value.note || ''}
             </span>
             <small>
-              {cardDate(r.updatedAt)}
+              {cardDate(r.updatedAt, cardLocale)}
               {r.value.folderId && folderNames.has(r.value.folderId) && (
                 <span> · {folderNames.get(r.value.folderId)}</span>
               )}
@@ -252,15 +260,15 @@ const RecordCard = memo(
         </button>
         {manual && (
           <button type="button" data-card-control className="sort-handle"
-            aria-label={'拖动排序 ' + (r.value.title || '记录')} aria-keyshortcuts="ArrowUp ArrowDown">
+            aria-label={t('list.dragSortAria', { title: r.value.title || t('list.defaultRecord') })} aria-keyshortcuts="ArrowUp ArrowDown">
             <GripVertical size={18} />
           </button>
         )}
         {trash && (
           <div className="trash-actions">
-            <button onClick={() => onRestore(r.id)}>恢复</button>
+            <button onClick={() => onRestore(r.id)}>{t('common.restore')}</button>
             <button className="text-danger" onClick={() => onPurge(r.id)}>
-              彻底删除
+              {t('common.purge')}
             </button>
           </div>
         )}

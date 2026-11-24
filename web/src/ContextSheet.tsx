@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { CheckCheck, Folder, Pin, Star, Trash2, X } from 'lucide-react'
 import { AttachmentThumb } from './media'
 import { FolderPicker } from './ChoiceMenu'
@@ -155,23 +156,24 @@ export function ContextSheet({ record, folders, origin, onClose, onSelect, onUpd
     }
   }, [])
 
+  const { t, i18n } = useTranslation()
   return (
-    <dialog ref={dialog} className="morph-dialog" aria-label="记录操作" tabIndex={-1}
+    <dialog ref={dialog} className="morph-dialog" aria-label={t('context.sheetAria')} tabIndex={-1}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
       onCancel={(event) => { event.preventDefault(); dismiss() }}
       onContextMenu={(event) => event.preventDefault()}>
       <div ref={backdrop} className="context-backdrop" aria-hidden="true" onClick={(event) => { event.stopPropagation(); dismiss() }} />
-      <button ref={closeButton} className="context-dismiss icon-button" aria-label="关闭记录操作" onClick={(event) => { event.stopPropagation(); dismiss() }}>
+      <button ref={closeButton} className="context-dismiss icon-button" aria-label={t('context.closeAria')} onClick={(event) => { event.stopPropagation(); dismiss() }}>
         <X size={20} />
       </button>
       <div ref={stage} className="context-stage">
         <div ref={preview} className="context-preview" tabIndex={-1} onClick={(event) => event.stopPropagation()}>
           <span ref={copy} className="context-preview-copy">
-            <strong>{record.value.title || '未命名' + (record.kind === 'note' ? '备忘' : '待办')}</strong>
+            <strong>{record.value.title || t(record.kind === 'note' ? 'notes.untitledNote' : 'notes.untitledTodo')}</strong>
             <span className="context-meta">
-              <span>{folders.find((folder) => folder.id === record.value.folderId)?.value.name || '默认'}</span>
-              <time>{new Date(record.updatedAt).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}</time>
+              <span>{folders.find((folder) => folder.id === record.value.folderId)?.value.name || t('common.default')}</span>
+              <time>{new Date(record.updatedAt).toLocaleDateString(i18n.resolvedLanguage || i18n.language, { month: 'long', day: 'numeric' })}</time>
             </span>
             {image && <AttachmentThumb id={image} />}
             {excerpt && <span className="context-excerpt">{excerpt}</span>}
@@ -179,17 +181,17 @@ export function ContextSheet({ record, folders, origin, onClose, onSelect, onUpd
         </div>
         <div ref={menu} className="context-actions menu-surface">
           <div ref={menuContent} className="menu-scroll">
-            <button onClick={() => dismiss(onSelect)}><CheckCheck size={19} /><span>多选</span></button>
+            <button onClick={() => dismiss(onSelect)}><CheckCheck size={19} /><span>{t('context.multiSelect')}</span></button>
             <button onClick={() => dismiss(() => onUpdate({ starred: !record.value.starred }))}>
-              <Star size={19} /><span>{record.value.starred ? '取消收藏' : '收藏'}</span>
+              <Star size={19} /><span>{record.value.starred ? t('context.unstar') : t('context.star')}</span>
             </button>
-            <FolderPicker label="移到文件夹" folders={folders} value={record.value.folderId || ''}
-              action={<><Folder size={19} /><span>移到</span></>}
+            <FolderPicker label={t('context.moveToFolderAria')} folders={folders} value={record.value.folderId || ''}
+              action={<><Folder size={19} /><span>{t('context.move')}</span></>}
               onChange={(folderId) => dismiss(() => onUpdate({ folderId }))} />
             <button onClick={() => dismiss(() => onUpdate({ pinned: !record.value.pinned }))}>
-              <Pin size={19} /><span>{record.value.pinned ? '取消置顶' : '置顶'}</span>
+              <Pin size={19} /><span>{record.value.pinned ? t('context.unpin') : t('context.pin')}</span>
             </button>
-            <button className="text-danger" onClick={() => dismiss(onDelete)}><Trash2 size={19} /><span>删除</span></button>
+            <button className="text-danger" onClick={() => dismiss(onDelete)}><Trash2 size={19} /><span>{t('context.delete')}</span></button>
           </div>
         </div>
       </div>

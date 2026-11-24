@@ -1,6 +1,7 @@
 import type { Editor } from '@tiptap/react'
 import { MarkdownManager } from '@tiptap/markdown'
 import { Capacitor } from '@capacitor/core'
+import i18n, { currentLocale } from './i18n'
 import { normalizePaperToken, paperOptionFor } from './palette'
 import type { LocalRecord } from './types'
 
@@ -9,7 +10,8 @@ function safeFilename(name: string) {
   const match = clean.match(/\.[a-zA-Z0-9]{1,10}$/)
   const ext = match?.[0] || ''
   return (
-    (clean.slice(0, ext ? clean.length - ext.length : clean.length).slice(0, 160) || '便签') + ext
+    (clean.slice(0, ext ? clean.length - ext.length : clean.length).slice(0, 160) ||
+      i18n.t('exportModal.defaultFilename')) + ext
   )
 }
 
@@ -26,7 +28,7 @@ function formatExportDate(record: LocalRecord): string {
   const raw = record.value.createdAt || record.updatedAt
   if (!raw) return ''
   try {
-    return new Date(raw).toLocaleString('zh-CN', {
+    return new Date(raw).toLocaleString(currentLocale(), {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -41,7 +43,7 @@ function formatExportDate(record: LocalRecord): string {
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onerror = () => reject(reader.error || Error('文件读取失败'))
+    reader.onerror = () => reject(reader.error || Error(i18n.t('exportModal.fileReadFailed')))
     reader.onload = () => resolve(String(reader.result))
     reader.readAsDataURL(blob)
   })
@@ -64,7 +66,11 @@ async function shareNativeFile(base64: string, name: string) {
     data: base64,
     recursive: true,
   })
-  await Share.share({ title: name, files: [file.uri], dialogTitle: '保存或分享 ' + name })
+  await Share.share({
+    title: name,
+    files: [file.uri],
+    dialogTitle: i18n.t('exportModal.shareDialogTitle', { name }),
+  })
 }
 
 function browserDownload(url: string, name: string) {
@@ -159,12 +165,12 @@ export function buildPrintableHTML({
   bodyHtml: string
   backgroundColor?: string
 }): string {
-  const safeTitle = escapeHtml(title || '未命名备忘')
+  const safeTitle = escapeHtml(title || i18n.t('notes.untitled'))
   const safeDate = date ? escapeHtml(date) : ''
   const bg = backgroundColor || '#ffffff'
   const tinted = bg.toLowerCase() !== '#ffffff' && bg.toLowerCase() !== '#fff'
   return `<!doctype html>
-<html lang="zh-CN">
+<html lang="${escapeHtml(currentLocale())}">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -181,7 +187,7 @@ export function buildPrintableHTML({
     padding: 0;
     background: ${bg};
     color: #272726;
-    font-family: "Noto Sans CJK SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: "Noto Sans CJK SC", "Noto Sans CJK JP", "Noto Sans CJK KR", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Malgun Gothic", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     font-size: 10.5pt;
     line-height: 1.65;
     -webkit-print-color-adjust: exact;
@@ -404,7 +410,7 @@ async function printHtmlInWebIframe(html: string, name: string): Promise<void> {
     const win = iframe.contentWindow
     if (!doc || !win) {
       cleanup()
-      reject(Error('无法初始化打印视图'))
+      reject(Error(i18n.t('exportModal.printInitFailed')))
       return
     }
 
@@ -455,7 +461,7 @@ export async function printNote(
   surface: HTMLElement,
   options?: { keepPaper?: boolean },
 ): Promise<void> {
-  const title = record.value.title || '未命名备忘'
+  const title = record.value.title || i18n.t('notes.untitled')
   const paperToken = options?.keepPaper ? normalizePaperToken(record.value.bgColor) : ''
   const exportBg = paperToken ? paperOptionFor(paperToken).lightSurface : '#ffffff'
   const cleanBody = await extractCleanBody(surface)
@@ -481,7 +487,7 @@ export async function exportNote(
   surface: HTMLElement,
   options?: { keepPaper?: boolean },
 ) {
-  const title = record.value.title || '未命名备忘'
+  const title = record.value.title || i18n.t('notes.untitled')
   const name = safeFilename(title)
   if (type === 'md') {
     const markdown = new MarkdownManager({ extensions: editor.extensionManager.baseExtensions })

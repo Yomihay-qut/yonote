@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import ReactDOM from 'react-dom/client'
+import './i18n'
 import App from './App'
 import './style.css'
 import './polish.css'

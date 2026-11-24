@@ -1,4 +1,5 @@
 import { useImperativeHandle, useLayoutEffect, useRef, type KeyboardEvent, type PointerEvent, type ReactNode, type Ref } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check, Search, X } from 'lucide-react'
 import { registerBackHandler } from './native'
 import { useEvent } from './interaction'
@@ -59,6 +60,7 @@ export function SearchField({
   autoFocus?: boolean
   children?: ReactNode
 }) {
+  const { t } = useTranslation()
   const input = useRef<HTMLInputElement>(null)
   useImperativeHandle(ref, () => input.current!, [])
   return (
@@ -75,7 +77,7 @@ export function SearchField({
         onKeyDown={onKeyDown}
       />
       {value && (
-        <IconButton label="清空搜索" onClick={() => {
+        <IconButton label={t('list.clearSearch')} onClick={() => {
           onChange('')
           input.current?.focus({ preventScroll: true })
         }}><X size={16} /></IconButton>
@@ -129,6 +131,7 @@ export function Modal({
   className?: string
   layoutKey?: string
 }) {
+  const { t } = useTranslation()
   const stage = useRef<HTMLDialogElement>(null)
   const panel = useRef<HTMLDivElement>(null)
   const shade = useRef<HTMLDivElement>(null)
@@ -442,7 +445,7 @@ export function Modal({
           onPointerUp={release} onPointerCancel={(event) => release(event, true)}
           onLostPointerCapture={(event) => release(event, true)}>
           <h2>{title}</h2>
-          <IconButton label="关闭" onClick={() => dismiss()}>
+          <IconButton label={t('common.close')} onClick={() => dismiss()}>
             <X size={20} />
           </IconButton>
         </div>
@@ -454,7 +457,7 @@ export function Modal({
 export function Confirm({
   title,
   text,
-  action = '确认',
+  action,
   onConfirm,
   onClose,
   danger = false,
@@ -466,19 +469,20 @@ export function Confirm({
   onClose: () => void
   danger?: boolean
 }) {
+  const { t } = useTranslation()
   const modal = useRef<ModalHandle>(null)
   return (
     <Modal ref={modal} title={title} onClose={onClose}>
       <p className="muted confirm-text">{text}</p>
       <div className="button-row end">
         <button className="secondary" onClick={() => modal.current?.dismiss()}>
-          取消
+          {t('common.cancel')}
         </button>
         <button
           className={danger ? 'danger' : 'primary'}
           onClick={() => modal.current?.dismiss(onConfirm)}
         >
-          {action}
+          {action ?? t('common.confirm')}
         </button>
       </div>
     </Modal>

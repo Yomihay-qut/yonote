@@ -1,5 +1,12 @@
 import { lazy, Suspense, useDeferredValue, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useLiveQuery } from 'dexie-react-hooks'
+import i18n, {
+  applyLanguagePreference,
+  currentLocale,
+  readLanguagePreference,
+  type LanguagePreference,
+} from './i18n'
 import {
   Check,
   CheckCheck,
@@ -72,13 +79,15 @@ const accents: Record<string, string> = {
   purple: '#bd9cf3',
 }
 const emptySummaries: RecordSummary[] = []
-const modules = [{ value: 'note', label: '备忘' }, { value: 'todo', label: '待办' }] as const
-function dateLabel(s: string) {
+function dateLabel(s: string, locale: string = currentLocale()) {
   const d = new Date(s),
     today = new Date()
   if (d.toDateString() === today.toDateString())
-    return '今天 ' + d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-  return d.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })
+    return i18n.t('date.todayTime', {
+      lng: locale,
+      time: d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }),
+    })
+  return d.toLocaleDateString(locale, { month: 'long', day: 'numeric' })
 }
 function persisted<T>(key: string, fallback: T) {
   try {
@@ -88,10 +97,24 @@ function persisted<T>(key: string, fallback: T) {
   }
 }
 export default function App() {
+  const { t, i18n: i18nInst } = useTranslation()
+  const activeLocale = i18nInst.resolvedLanguage || i18nInst.language
+  const modules = useMemo(
+    () => [
+      { value: 'note' as const, label: t('modules.note') },
+      { value: 'todo' as const, label: t('modules.todo') },
+    ],
+    [t],
+  )
   const [session, setSession] = useState<Session | null>(sessionRead),
     [theme, setTheme] = useState<string>(() => persisted('theme', 'system')),
     [accent, setAccent] = useState<string>(() => persisted('accent', '#e5bd42')),
-    [motion, setMotion] = useState<boolean>(() => persisted('motion', true))
+    [motion, setMotion] = useState<boolean>(() => persisted('motion', true)),
+    [language, setLanguageState] = useState<LanguagePreference>(() => readLanguagePreference())
+  const setLanguage = useEvent((next: LanguagePreference) => {
+    setLanguageState(next)
+    applyLanguagePreference(next)
+  })
   const [module, setModule] = useState<Module>('note'),
     [filter, setFilter] = useState('all'),
     [search, setSearch] = useState(''),
@@ -121,7 +144,7 @@ export default function App() {
     [contextId, setContextId] = useState<string | null>(null),
     [sync, setSync] = useState<SyncState>({
       status: session ? 'syncing' : 'local',
-      message: '正在打开…',
+      message: t('common.opening'),
     }),
     [ready, setReady] = useState(false),
     [initialSyncSettled, setInitialSyncSettled] = useState(!session),
@@ -386,7 +409,7 @@ export default function App() {
           se.start()
         }
       })
-      .catch((e) => notify('本地存储打开失败：' + e.message))
+      .catch((e) => notify(t('common.openFailed', { message: e.message })))
     return () => {
       live = false
       engine.current?.stop()
@@ -471,21 +494,20 @@ export default function App() {
       return true
     }),
     sort as SortOrder,
-  ), [query, matches, items, filter, module, sort])
+    activeLocale,
+  ), [query, matches, items, filter, module, sort, activeLocale])
   const label =
     filter === 'all'
-      ? module === 'note'
-        ? '全部备忘'
-        : '全部待办'
+      ? t(module === 'note' ? 'nav.allNotes' : 'nav.allTodos')
       : filter === 'starred'
-        ? '我的收藏'
+        ? t('nav.starred')
         : filter === 'trash'
-          ? '最近删除'
+          ? t('nav.trash')
           : filter === 'done'
-            ? '已完成'
+            ? t('nav.done')
             : filter === ''
-              ? '默认'
-              : folders.find((f) => f.id === filter)?.value.name || '全部备忘'
+              ? t('common.default')
+              : folders.find((f) => f.id === filter)?.value.name || t('nav.allNotes')
   const update = useEvent(async function update(
     id: string,
     kind: LocalRecord['kind'],
@@ -505,7 +527,7 @@ export default function App() {
       // Explicit actions (back/done/switch/background/pin/delete) sync immediately.
       engine.current?.schedule(isTextEdit ? 10000 : 650)
     } catch (e) {
-      notify('保存失败，请保留页面：' + (e as Error).message)
+      notify(t('common.saveFailedKeepPage', { message: (e as Error).message }))
       throw e
     }
   })
@@ -602,7 +624,15 @@ export default function App() {
     }
     setSelecting(false)
     setChecked(new Set())
-    notify(action === 'trash' ? '已移入最近删除' : action === 'restore' ? '已恢复' : '已移动')
+    notify(
+      t(
+        action === 'trash'
+          ? 'list.movedToTrash'
+          : action === 'restore'
+            ? 'list.restored'
+            : 'list.moved',
+      ),
+    )
   }
   async function purge(r: LocalRecord) {
     try {
@@ -625,7 +655,7 @@ export default function App() {
       })
       setSelected(null)
       engine.current?.schedule()
-      notify('已彻底删除')
+      notify(t('list.purged'))
     } catch (e) {
       notify((e as Error).message)
     }
@@ -635,7 +665,7 @@ export default function App() {
     try {
       const changed = await db.transaction('rw', db.records, db.summaries, db.outbox, async () => {
         const items = sortRecords((await db.summaries.toArray()).filter((record) =>
-          record.kind === module && !record.deletedAt && !record.value.purged), 'manual')
+          record.kind === module && !record.deletedAt && !record.value.purged), 'manual', activeLocale)
         const ordered = moveRecord(items, source, target, placement)
         if (ordered === items) return false
         for (const [index, record] of ordered.entries()) {
@@ -646,7 +676,7 @@ export default function App() {
       if (changed) engine.current?.schedule()
       return changed
     } catch (error) {
-      notify('排序保存失败：' + (error as Error).message)
+      notify(t('list.sortSaveFailed', { message: (error as Error).message }))
       return false
     }
   })
@@ -676,15 +706,25 @@ export default function App() {
     const r = rows.find((r) => r.id === id)
     if (r)
       setConfirm({
-        title: '彻底删除？',
-        text: '记录、附件和历史版本将永久移除。',
-        action: '删除',
+        title: t('list.purgeConfirmTitle'),
+        text: t('list.purgeConfirmText'),
+        action: t('common.delete'),
         run: () => void purge(r),
       })
   })
   const syncLabel = {
-    local: '账号与同步', synced: '已同步', syncing: '正在同步', offline: '离线', error: '同步待处理',
+    local: t('sync.localLabel'),
+    synced: t('sync.syncedLabel'),
+    syncing: t('sync.syncingLabel'),
+    offline: t('sync.offlineLabel'),
+    error: t('sync.errorLabel'),
   }[sync.status]
+  const sortLabels: Record<SortOrder, string> = {
+    updated: t('list.sortUpdated'),
+    created: t('list.sortCreated'),
+    title: t('list.sortTitle'),
+    manual: t('list.sortManual'),
+  }
   const localContext = useMemo(() => ({ db, session }), [db, session])
   return (
     <AttachmentContext.Provider value={localContext}>
@@ -692,7 +732,7 @@ export default function App() {
         {compact && drawerActive && (
           <button
             className="drawer-shade"
-            aria-label="收起文件夹"
+            aria-label={t('nav.collapseSidebar')}
             onClick={() => setDrawer(false)}
           />
         )}
@@ -702,18 +742,18 @@ export default function App() {
               <StickyNote size={23} />
             </span>
             <span>
-              便签
+              {t('app.name')}
             </span>
             <IconButton
               className="drawer-close"
-              label="收起文件夹"
+              label={t('nav.collapseSidebar')}
               onClick={() => setDrawer(false)}
             >
               <X size={20} />
             </IconButton>
           </div>
 
-          <nav ref={navRef} aria-label="文件夹导航">
+          <nav ref={navRef} aria-label={t('nav.sidebarAria')}>
             <span className="nav-active-pill" aria-hidden="true" />
             <button
               className={'nav-row ' + (filter === 'all' ? 'selected' : '')}
@@ -721,7 +761,7 @@ export default function App() {
               onClick={() => nav('all')}
             >
               {module === 'note' ? <NotebookPen /> : <CheckCircle2 />}
-              <span>{module === 'note' ? '全部备忘' : '全部待办'}</span>
+              <span>{t(module === 'note' ? 'nav.allNotes' : 'nav.allTodos')}</span>
               <small>{counts.all}</small>
             </button>
             {module === 'note' ? (
@@ -731,7 +771,7 @@ export default function App() {
                 onClick={() => nav('starred')}
               >
                 <Star />
-                <span>我的收藏</span>
+                <span>{t('nav.starred')}</span>
                 <small>{counts.starred}</small>
               </button>
             ) : (
@@ -741,7 +781,7 @@ export default function App() {
                 onClick={() => nav('done')}
               >
                 <CheckCheck />
-                <span>已完成</span>
+                <span>{t('nav.done')}</span>
                 <small>{counts.done}</small>
               </button>
             )}
@@ -751,12 +791,12 @@ export default function App() {
               onClick={() => nav('trash')}
             >
               <Trash2 />
-              <span>最近删除</span>
+              <span>{t('nav.trash')}</span>
               <small>{counts.trash}</small>
             </button>
             <div className="folder-heading">
-              <span>文件夹</span>
-              <IconButton label="新建文件夹" onClick={() => editFolder('new')}>
+              <span>{t('nav.folders')}</span>
+              <IconButton label={t('nav.newFolder')} onClick={() => editFolder('new')}>
                 <Plus size={16} />
               </IconButton>
             </div>
@@ -766,7 +806,7 @@ export default function App() {
               onClick={() => nav('')}
             >
               <Folder className="accent" />
-              <span>默认</span>
+              <span>{t('common.default')}</span>
               <small>{counts.byFolder.get('') ?? 0}</small>
             </button>
             {folders.map((f) => (
@@ -782,7 +822,7 @@ export default function App() {
                 </button>
                 <button
                   className="folder-edit"
-                  aria-label={'编辑文件夹 ' + f.value.name}
+                  aria-label={t('nav.editFolderAria', { name: f.value.name })}
                   onClick={() => editFolder(f)}
                 >
                   <MoreHorizontal size={16} />
@@ -796,13 +836,13 @@ export default function App() {
                 {session?.user.username.slice(0, 1).toUpperCase() || 'Y'}
               </span>
               <span className="account-copy">
-                {session?.user.username || '本机空间'}
+                {session?.user.username || t('common.localSpace')}
                 <small>{session && <span className={'status-dot ' + sync.status} />}{syncLabel}</small>
               </span>
               {!session && <SettingsIcon size={18} />}
             </button>
             {session && (
-              <IconButton label="立即同步" onClick={() => void engine.current?.run()}>
+              <IconButton label={t('nav.syncNow')} onClick={() => void engine.current?.run()}>
                 <RefreshCw size={16} className={sync.status === 'syncing' ? 'spin' : ''} />
               </IconButton>
             )}
@@ -812,24 +852,24 @@ export default function App() {
           <header className="list-top">
             <IconButton
               className="drawer-trigger"
-              label="打开文件夹"
+              label={t('nav.expandSidebar')}
               expanded={drawer}
               onClick={() => setDrawer(true)}
             >
               <Menu size={21} />
             </IconButton>
-            <SegmentedControl label="备忘与待办" className="module-segments" value={module}
+            <SegmentedControl label={t('modules.switcherAria')} className="module-segments" value={module}
               options={modules} onChange={switchModule} />
             <div className="menu-anchor">
               <IconButton ref={listMenuAnchor} id={listMenuId + '-trigger'} popup={listMenuId}
-                label="列表菜单" expanded={menu} onClick={() => setMenu(!menu)}>
+                label={t('list.menuAria')} expanded={menu} onClick={() => setMenu(!menu)}>
                 <MoreHorizontal size={24} />
               </IconButton>
               <FluidPopover anchor={listMenuAnchor} id={listMenuId} open={menu} onClose={() => setMenu(false)}>
                 {module === 'note' && (
                   <button role="menuitem" onClick={() => setView(view === 'list' ? 'grid' : 'list')}>
                     {view === 'list' ? <LayoutGrid size={18} /> : <LayoutList size={18} />}
-                    <span>{view === 'list' ? '宫格视图' : '列表视图'}</span>
+                    <span>{t(view === 'list' ? 'list.gridView' : 'list.listView')}</span>
                   </button>
                 )}
                 <button
@@ -841,21 +881,21 @@ export default function App() {
                   }}
                 >
                   <CalendarDays size={18} />
-                  <span>按日期分组</span>
+                  <span>{t('list.groupByDate')}</span>
                   {grouped && <Check size={16} />}
                 </button>
                 <button role="menuitem" onClick={() => setSelecting(!selecting)}>
                   <CheckCheck size={17} />
-                  {selecting ? '结束多选' : '多选'}
+                  {selecting ? t('list.doneSelecting') : t('list.multiSelect')}
                 </button>
-                <div className="sort-options" role="group" aria-label="排序方式">
-                  <span>排序方式</span>
+                <div className="sort-options" role="group" aria-label={t('list.sortLabel')}>
+                  <span>{t('list.sortLabel')}</span>
                   {([
-                    ['updated', '修改时间'],
-                    ['created', '创建时间'],
-                    ['title', '标题'],
-                    ['manual', '手动'],
-                  ] as const).map(([value, label]) => (
+                    ['updated', sortLabels.updated],
+                    ['created', sortLabels.created],
+                    ['title', sortLabels.title],
+                    ['manual', sortLabels.manual],
+                  ] as const).map(([value, sortText]) => (
                     <button
                       key={value}
                       role="menuitemradio"
@@ -865,14 +905,14 @@ export default function App() {
                         if (value === 'manual') setGrouped(false)
                       }}
                     >
-                      {label}
+                      {sortText}
                       {sort === value && <Check size={15} />}
                     </button>
                   ))}
                 </div>
                 <button role="menuitem" onClick={() => setSettings(true)}>
                   <SettingsIcon size={17} />
-                  设置与账号
+                  {t('list.settingsAndAccount')}
                 </button>
               </FluidPopover>
             </div>
@@ -881,20 +921,24 @@ export default function App() {
             <h1>{label}</h1>
             <div className="list-subtitle">
               <span>
-                {listPending ? '\u00A0' : `${visible.length} ${module === 'note' ? '条备忘' : '条待办'}`}
+                {listPending
+                  ? '\u00A0'
+                  : t(module === 'note' ? 'list.noteCount' : 'list.todoCount', {
+                      count: visible.length,
+                    })}
               </span>
               <span role={session && sync.status !== 'synced' ? 'status' : undefined}>
                 {session && sync.status !== 'synced' && sync.status !== 'local'
                   ? syncLabel
                   : filter === 'trash'
-                    ? '30 天'
-                    : { updated: '修改时间', created: '创建时间', title: '标题', manual: '手动' }[sort]}
+                    ? t('list.trashRetention')
+                    : sortLabels[sort as SortOrder]}
               </span>
             </div>
           </div>
           <SearchField
-            label={module === 'note' ? '搜索备忘' : '搜索待办'}
-            placeholder={module === 'note' ? '搜索备忘' : '搜索待办'}
+            label={t(module === 'note' ? 'list.searchNotes' : 'list.searchTodos')}
+            placeholder={t(module === 'note' ? 'list.searchNotes' : 'list.searchTodos')}
             value={search}
             onChange={setSearch}
           />
@@ -907,19 +951,19 @@ export default function App() {
                   )
                 }
               >
-                全选 · {checked.size}
+                {t('list.selectAll', { count: checked.size })}
               </button>
-              <FolderPicker folders={folders} label="批量移动到文件夹" placeholder="移动到…"
+              <FolderPicker folders={folders} label={t('list.batchMoveAria')} placeholder={t('list.moveToPlaceholder')}
                 disabled={!checked.size} onChange={(value) => void batch('move', value)} />
               <IconButton
-                label={filter === 'trash' ? '批量恢复' : '批量删除'}
+                label={t(filter === 'trash' ? 'list.batchRestoreAria' : 'list.batchDeleteAria')}
                 disabled={!checked.size}
                 onClick={() => void batch(filter === 'trash' ? 'restore' : 'trash')}
               >
                 {filter === 'trash' ? <ArchiveRestore size={18} /> : <Trash2 size={18} />}
               </IconButton>
               <IconButton
-                label="结束多选"
+                label={t('list.doneSelecting')}
                 onClick={() => {
                   setSelecting(false)
                   setChecked(new Set())
@@ -933,7 +977,7 @@ export default function App() {
           <div className="record-list" ref={listRef}>
             {listPending ? (
               showLoading ? (
-                <div className="list-skeleton" aria-busy="true" aria-label="正在加载">
+                <div className="list-skeleton" aria-busy="true" aria-label={t('common.loading')}>
                   <div className="list-skeleton-card"><span /><span /></div>
                   <div className="list-skeleton-card"><span /><span /></div>
                   <div className="list-skeleton-card"><span /><span /></div>
@@ -952,12 +996,10 @@ export default function App() {
                 }
                 title={
                   search
-                    ? '没有找到相关记录'
+                    ? t('list.emptySearch')
                     : filter === 'trash'
-                      ? '最近删除为空'
-                      : module === 'note'
-                        ? '暂无备忘'
-                        : '暂无待办'
+                      ? t('list.emptyTrash')
+                      : t(module === 'note' ? 'list.emptyNotes' : 'list.emptyTodos')
                 }
                 text=""
               />
@@ -988,7 +1030,7 @@ export default function App() {
             <div className="add-area">
               <button
                 className="add-button"
-                aria-label={module === 'note' ? '新建备忘' : '新建待办'}
+                aria-label={t(module === 'note' ? 'list.newNote' : 'list.newTodo')}
                 onClick={() => void add()}
               >
                 <Plus size={30} />
@@ -1019,7 +1061,7 @@ export default function App() {
                   onDelete={() => {
                     void update(displayRecord.id, 'note', {}, new Date().toISOString())
                     setMobileOpen(false)
-                    notify('已移入最近删除')
+                    notify(t('list.movedToTrash'))
                   }}
                   onHistory={() => setHistory(true)}
                   onShare={() => setShare(true)}
@@ -1052,11 +1094,11 @@ export default function App() {
                   <StickyNote size={58} strokeWidth={1} />
                   <span className="welcome-spark">✦</span>
                 </div>
-                <h2>便签</h2>
+                <h2>{t('app.name')}</h2>
 
                 <button className="primary" onClick={() => void add()}>
                   <Plus size={17} />
-                  新建{module === 'note' ? '备忘' : '待办'}
+                  {t(module === 'note' ? 'list.newNote' : 'list.newTodo')}
                 </button>
               </div>
             )}
@@ -1093,6 +1135,8 @@ export default function App() {
               setAccent={setAccent}
               motion={motion}
               setMotion={setMotion}
+              language={language}
+              setLanguage={setLanguage}
             />
           )}
           {history && current && (
@@ -1117,7 +1161,7 @@ export default function App() {
         {folderModal && (
           <Modal
             ref={folderDialog}
-            title={folderModal === 'new' ? '新建文件夹' : '编辑文件夹'}
+            title={t(folderModal === 'new' ? 'folders.newTitle' : 'folders.editTitle')}
             onClose={() => setFolderModal(null)}
           >
             <form
@@ -1135,14 +1179,14 @@ export default function App() {
               }}
             >
               <label className="form-field">
-                文件夹名称
+                {t('folders.nameLabel')}
                 <input
                   autoFocus
                   required
                   maxLength={50}
                   value={folderName}
                   onChange={(e) => setFolderName(e.target.value)}
-                  placeholder="名称"
+                  placeholder={t('folders.namePlaceholder')}
                 />
               </label>
               <div className="color-options">
@@ -1150,7 +1194,7 @@ export default function App() {
                   <ColorDot
                     key={c}
                     color={c}
-                    label={'文件夹颜色 ' + c}
+                    label={t('folders.colorAria', { color: c })}
                     selected={folderColor === c}
                     onClick={() => setFolderColor(c)}
                   />
@@ -1163,9 +1207,9 @@ export default function App() {
                     className="text-danger secondary"
                     onClick={() =>
                       setConfirm({
-                        title: '删除文件夹？',
-                        text: '其中的记录将移到「默认」文件夹。',
-                        action: '删除文件夹',
+                        title: t('folders.deleteConfirmTitle'),
+                        text: t('folders.deleteConfirmText'),
+                        action: t('folders.deleteButton'),
                         run: () => {
                           void deleteFolder(db, folderModal.id).then(() =>
                             engine.current?.schedule(),
@@ -1176,11 +1220,11 @@ export default function App() {
                       })
                     }
                   >
-                    删除文件夹
+                    {t('folders.deleteButton')}
                   </button>
                 )}
                 <button className="primary" type="submit">
-                  保存
+                  {t('common.save')}
                 </button>
               </div>
             </form>
@@ -1220,6 +1264,8 @@ function TodoEditor({
   onUpdate: (p: Partial<Value>, baseVersion?: number) => Promise<void>
   onDelete: () => void
 }) {
+  const { t, i18n: i18nInst } = useTranslation()
+  const activeLocale = i18nInst.resolvedLanguage || i18nInst.language
   const [draft, setDraft] = useState({
     title: record.value.title || '',
     note: record.value.note || '',
@@ -1280,17 +1326,17 @@ function TodoEditor({
       .then(onBack)
       .catch(() => {})
   return (
-    <section className="editor-pane" aria-label="待办编辑器">
+    <section className="editor-pane" aria-label={t('todo.editorAria')}>
       <header className="editor-nav">
-        <IconButton className="editor-back" label="返回待办列表" onClick={back}>
+        <IconButton className="editor-back" label={t('todo.backToList')} onClick={back}>
           <ArrowLeft size={21} />
         </IconButton>
-        <span className="editor-breadcrumb">待办</span>
+        <span className="editor-breadcrumb">{t('todo.breadcrumb')}</span>
         <div className="editor-actions">
-          <IconButton label="移入最近删除" onClick={onDelete}>
+          <IconButton label={t('editor.moveToTrash')} onClick={onDelete}>
             <Trash2 size={19} />
           </IconButton>
-          <IconButton className="mobile-done" label="完成编辑" onClick={back}>
+          <IconButton className="mobile-done" label={t('editor.doneEditing')} onClick={back}>
             <Check size={21} />
           </IconButton>
         </div>
@@ -1302,7 +1348,7 @@ function TodoEditor({
               type="button"
               className="task-status"
               aria-pressed={!!record.value.done}
-              aria-label={record.value.done ? '标为未完成' : '标记完成'}
+              aria-label={t(record.value.done ? 'todo.markIncomplete' : 'todo.markComplete')}
               onClick={() =>
                 void onUpdate({
                   done: !record.value.done,
@@ -1315,28 +1361,32 @@ function TodoEditor({
             <input
               ref={titleEl}
               autoFocus={!record.value.title && !record.value.note && matchMedia('(min-width: 701px)').matches}
-              aria-label="待办事项"
+              aria-label={t('todo.titleAria')}
               className="note-title"
-              placeholder="待办事项"
+              placeholder={t('todo.titlePlaceholder')}
               maxLength={500}
               value={draft.title}
               onChange={(e) => change({ title: e.target.value })}
             />
           </div>
           <div className="note-meta">
-            <FolderPicker label="待办文件夹" folders={folders} value={record.value.folderId || ''}
+            <FolderPicker label={t('todo.folderAria')} folders={folders} value={record.value.folderId || ''}
               onChange={(folderId) => void onUpdate({ folderId }).catch(() => {})} />
             <span>
               {record.value.done
-                ? '完成于 ' + dateLabel(record.value.doneAt || record.updatedAt)
-                : '创建于 ' + dateLabel(record.value.createdAt || record.updatedAt)}
+                ? t('date.completedAt', {
+                    time: dateLabel(record.value.doneAt || record.updatedAt, activeLocale),
+                  })
+                : t('date.createdAt', {
+                    time: dateLabel(record.value.createdAt || record.updatedAt, activeLocale),
+                  })}
             </span>
           </div>
           <textarea
             ref={noteEl}
-            aria-label="待办备注"
+            aria-label={t('todo.noteAria')}
             className="todo-notes"
-            placeholder="添加备注"
+            placeholder={t('todo.notePlaceholder')}
             value={draft.note}
             onChange={(e) => change({ note: e.target.value })}
           />

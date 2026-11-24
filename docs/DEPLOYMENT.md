@@ -48,7 +48,7 @@ curl http://127.0.0.1:8787/api/health
 
 ```bash
 sudo mkdir -p /opt/yonote
-sudo tar -xzf yonote-server-linux-amd64-v0.9.1.tar.gz -C /opt/yonote
+sudo tar -xzf yonote-server-linux-amd64-v1.0.0.tar.gz -C /opt/yonote
 sudo useradd --system --home /var/lib/yonote --shell /usr/sbin/nologin yonote
 sudo install -d -o yonote -g yonote -m 700 /var/lib/yonote
 sudo chmod 755 /opt/yonote/yonote

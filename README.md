@@ -1,5 +1,7 @@
 # 便签 · Yonote
 
+简体中文 | [English](README.en.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
+
 <p>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg" /></a>
   <img alt="Go 1.25" src="https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white" />
@@ -9,7 +11,7 @@
   <a href="https://github.com/Yomihay-qut/yonote/releases"><img alt="Releases" src="https://img.shields.io/github/v/release/Yomihay-qut/yonote" /></a>
 </p>
 
-一个**可自托管、离线优先**的跨平台中文备忘与待办应用。Android、Windows 桌面端与 Web / PWA 共享同一套 React 客户端；服务端采用零 CGO 单二进制 Go + SQLite（内嵌前端页面），并原生内置受控 **AI API 与 Streamable HTTP MCP** 接口。
+一个**可自托管、离线优先**的跨平台备忘与待办应用（默认自动跟随系统语言，支持简体中文 / English / 日本語 / 한국어）。Android、Windows 桌面端与 Web / PWA 共享同一套 React 客户端；服务端采用零 CGO 单二进制 Go + SQLite（内嵌前端页面），并原生内置受控 **AI API 与 Streamable HTTP MCP** 接口。
 
 ---
 
@@ -42,7 +44,7 @@ docker compose up -d
 前往 [Releases](https://github.com/Yomihay-qut/yonote/releases/latest) 下载 `yonote-server-linux-amd64-v*.tar.gz`（或 `arm64`）。前端界面已直接内嵌进 `yonote` 单文件二进制中：
 
 ```bash
-sudo tar -xzf yonote-server-linux-amd64-v0.9.1.tar.gz -C /opt/yonote
+sudo tar -xzf yonote-server-linux-amd64-v1.0.0.tar.gz -C /opt/yonote
 /opt/yonote/yonote -addr 127.0.0.1:8787 -data /var/lib/yonote
 ```
 
@@ -51,6 +53,8 @@ sudo tar -xzf yonote-server-linux-amd64-v0.9.1.tar.gz -C /opt/yonote
 ---
 
 ## 核心特性
+
+- **多语言与系统自动识别**：原生内置简体中文、English、日本語、한국어，默认自动跟随系统 / 浏览器语言，也可在「设置 → 外观」一键切换。
 
 - **离线优先 & 增量同步**：所有读写先落本机 IndexedDB（Dexie），断网可随时创作；联网后通过基于内容 SHA-256 哈希的状态增量协议同步，未改动不上传，附件支持 SHA-256 去重秒传。
 - **语义深浅主题与纸张系统**：纸张底色、字色与荧光高亮全部采用语义令牌存储，在浅色/深色模式、公开分享页、导出与打印间自动切换高对比度配色，粘贴外部富文本自动净化杂色。

@@ -1,6 +1,6 @@
 [package]
 name = "yonote-desktop"
-version = "0.9.1"
+version = "1.0.0"
 description = "Yonote desktop client"
 edition = "2021"
 

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, createContext, useContext } from 'react'
 import { v7 as uuid } from 'uuid'
+import i18n from './i18n'
 import type { Attachment, Session } from './types'
 import type { NoteDB } from './store'
 export const AttachmentContext = createContext<{
@@ -21,7 +22,7 @@ export function useAttachment(id: string | undefined, thumbnail = false, enabled
         let file = await ctx.db.attachments.get(id)
         let blob = thumbnail ? file?.thumbnail || file?.blob : file?.blob
         if (!blob) {
-          if (!ctx.session && !ctx.publicToken) throw Error('请连接服务器下载附件')
+          if (!ctx.session && !ctx.publicToken) throw Error(i18n.t('media.connectToDownload'))
           const base = ctx.session?.base || ''
           const path = ctx.publicToken
             ? '/api/public/' + ctx.publicToken + '/attachments/' + id
@@ -30,7 +31,7 @@ export function useAttachment(id: string | undefined, thumbnail = false, enabled
             headers: ctx.session ? { Authorization: 'Bearer ' + ctx.session.token } : {},
             signal: controller.signal,
           })
-          if (!res.ok) throw Error('附件稍后再试')
+          if (!res.ok) throw Error(i18n.t('media.retryAttachment'))
           blob = await res.blob()
           if (ctx.session) {
             if (file) await ctx.db.attachments.update(id, { blob })
@@ -38,7 +39,7 @@ export function useAttachment(id: string | undefined, thumbnail = false, enabled
               await ctx.db.attachments.put({
                 id,
                 noteId: '',
-                name: '附件',
+                name: i18n.t('media.attachment'),
                 mime: blob.type,
                 size: blob.size,
                 blob,
@@ -58,7 +59,7 @@ export function useAttachment(id: string | undefined, thumbnail = false, enabled
           set({ url })
         }
       } catch (e) {
-        if (live) set({ error: e instanceof Error ? e.message : '附件加载失败' })
+        if (live) set({ error: e instanceof Error ? e.message : i18n.t('media.loadFailed') })
       }
     })()
     return () => {
@@ -75,7 +76,7 @@ export async function addFile(
   file: File,
   original = false,
 ): Promise<Attachment> {
-  if (file.size > 50 * 1024 * 1024) throw Error('单个文件最多 50MB')
+  if (file.size > 50 * 1024 * 1024) throw Error(i18n.t('media.fileTooLarge'))
   let blob: Blob = file
   if (!original && ['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
     const image = await createImageBitmap(file)

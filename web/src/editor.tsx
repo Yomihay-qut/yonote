@@ -12,6 +12,8 @@ import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 import { Plugin, PluginKey, NodeSelection } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import { memo, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import i18n from './i18n'
 import { BufferedSave } from './buffered-save'
 import { FluidPopover } from './FluidPopover'
 import { ChoiceMenu, FolderPicker } from './ChoiceMenu'
@@ -66,6 +68,9 @@ import {
   normalizeInkToken,
   normalizePaperToken,
   paperOptionFor,
+  type HighlightToken,
+  type InkToken,
+  type PaperToken,
 } from './palette'
 import { canonicalJSON, docText, emptyDoc, save, type NoteDB } from './store'
 import { IconButton, ColorDot, Modal, SearchField, type ModalHandle } from './ui'
@@ -289,18 +294,45 @@ export const editorExtensions = [
   TaskItem.configure({ nested: true }),
   LocalImage,
   FileAttachment,
-  Placeholder.configure({ placeholder: '正文' }),
+  Placeholder.configure({ placeholder: () => i18n.t('editor.bodyPlaceholder') }),
   SearchExtension,
   InactiveSelectionExtension,
 ]
 
 const lineSpacings = [
-  { key: 'compact', label: '紧凑', lh: '1.3', gap: '0.06em' },
-  { key: 'normal', label: '标准', lh: '1.48', gap: '0.16em' },
-  { key: 'relaxed', label: '舒展', lh: '1.68', gap: '0.32em' },
-  { key: 'loose', label: '宽松', lh: '1.9', gap: '0.52em' },
+  { key: 'compact', labelKey: 'editor.spacingCompact' as const, lh: '1.3', gap: '0.06em' },
+  { key: 'normal', labelKey: 'editor.spacingNormal' as const, lh: '1.48', gap: '0.16em' },
+  { key: 'relaxed', labelKey: 'editor.spacingRelaxed' as const, lh: '1.68', gap: '0.32em' },
+  { key: 'loose', labelKey: 'editor.spacingLoose' as const, lh: '1.9', gap: '0.52em' },
 ] as const
 type LineSpacingKey = (typeof lineSpacings)[number]['key']
+
+const PAPER_LABEL_KEYS: Record<PaperToken, `palette.paper.${'default' | 'warm' | 'sage' | 'sky' | 'lavender'}`> = {
+  '': 'palette.paper.default',
+  warm: 'palette.paper.warm',
+  sage: 'palette.paper.sage',
+  sky: 'palette.paper.sky',
+  lavender: 'palette.paper.lavender',
+}
+const INK_LABEL_KEYS: Record<'' | InkToken, `palette.ink.${'default' | InkToken}`> = {
+  '': 'palette.ink.default',
+  amber: 'palette.ink.amber',
+  red: 'palette.ink.red',
+  blue: 'palette.ink.blue',
+  green: 'palette.ink.green',
+  purple: 'palette.ink.purple',
+  orange: 'palette.ink.orange',
+  gray: 'palette.ink.gray',
+}
+const HIGHLIGHT_LABEL_KEYS: Record<'' | HighlightToken, `palette.highlight.${'none' | HighlightToken}`> = {
+  '': 'palette.highlight.none',
+  yellow: 'palette.highlight.yellow',
+  blue: 'palette.highlight.blue',
+  green: 'palette.highlight.green',
+  pink: 'palette.highlight.pink',
+  purple: 'palette.highlight.purple',
+  orange: 'palette.highlight.orange',
+}
 
 export function NoteEditor({
   record,
@@ -325,6 +357,8 @@ export function NoteEditor({
   folders: LocalRecord[]
   notify: (s: string) => void
 }) {
+  const { t, i18n: i18nInst } = useTranslation()
+  const activeLocale = i18nInst.resolvedLanguage || i18nInst.language
   const [styleOpen, setStyle] = useState(false),
     [colorTray, setColorTray] = useState<'ink' | 'highlight' | null>(null),
     [lineSpacing, setLineSpacing] = useState<LineSpacingKey>(() => {
@@ -391,7 +425,7 @@ export function NoteEditor({
             plainText: current.getText({ blockSeparator: '\n' }),
           }, baseVersion.current)
         },
-        (error) => notify(error instanceof Error ? error.message : '保存失败'),
+        (error) => notify(error instanceof Error ? error.message : i18n.t('common.saveFailed')),
       ),
     [record.id],
   )
@@ -414,7 +448,7 @@ export function NoteEditor({
       content: record.value.content || emptyDoc,
       shouldRerenderOnTransaction: false,
       editorProps: {
-        attributes: { class: 'note-body', 'aria-label': '备忘正文', spellcheck: 'false' },
+        attributes: { class: 'note-body', 'aria-label': i18n.t('editor.bodyAria'), spellcheck: 'false' },
         handleDOMEvents: {
           compositionstart() {
             if (!writer.hasPending) {
@@ -457,6 +491,11 @@ export function NoteEditor({
     [record.id],
   )
   editorRef.current = editor
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return
+    editor.view.dom.setAttribute('aria-label', t('editor.bodyAria'))
+    editor.view.dispatch(editor.state.tr.setMeta('i18n', activeLocale))
+  }, [editor, activeLocale, t])
   useEffect(() => {
     if (!editor || editor.isDestroyed) return
     return bindSelectionSafeInput(editor.view.dom)
@@ -633,7 +672,7 @@ export function NoteEditor({
       ref={section}
       className={'editor-pane ' + (styleMounted ? 'style-dock-active' : '')}
       data-paper={paper || undefined}
-      aria-label="备忘编辑器"
+      aria-label={t('editor.noteEditorAria')}
       onKeyDown={(event) => {
         if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
           event.preventDefault()
@@ -644,25 +683,25 @@ export function NoteEditor({
         }
       }}>
       <header className="editor-nav">
-        <IconButton className="editor-back" label="返回列表" onClick={finishEditing}>
+        <IconButton className="editor-back" label={t('editor.backToList')} onClick={finishEditing}>
           <ArrowLeft size={21} />
         </IconButton>
         <div className="editor-nav-content" data-find={findOpen ? '' : undefined}>
           <div className="editor-nav-default" inert={findOpen}>
             <span className="saved-label">
               <Check size={15} />
-              {connected && !record.dirty ? '已同步' : '本机已保存'}
+              {connected && !record.dirty ? t('editor.synced') : t('editor.savedLocal')}
             </span>
             <div className="editor-actions">
-              <IconButton label="撤销" disabled={!state?.undo} onClick={() => cmd((editor) => editor.commands.undo())}>
+              <IconButton label={t('editor.undo')} disabled={!state?.undo} onClick={() => cmd((editor) => editor.commands.undo())}>
                 <Undo2 size={19} />
               </IconButton>
-              <IconButton label="重做" disabled={!state?.redo} onClick={() => cmd((editor) => editor.commands.redo())}>
+              <IconButton label={t('editor.redo')} disabled={!state?.redo} onClick={() => cmd((editor) => editor.commands.redo())}>
                 <Redo2 size={19} />
               </IconButton>
               <div className="menu-anchor">
                 <IconButton ref={editorMenu} id={editorMenuId + '-trigger'} popup={editorMenuId}
-                  label="更多备忘操作" expanded={menu} onClick={() => {
+                  label={t('editor.moreActions')} expanded={menu} onClick={() => {
                     setMenu(!menu)
                     if (!menu) {
                       closeStyle(false)
@@ -674,28 +713,28 @@ export function NoteEditor({
                 <FluidPopover anchor={editorMenu} id={editorMenuId} open={menu} onClose={() => setMenu(false)}>
                   <button role="menuitem" onClick={() => void onUpdate({ pinned: !record.value.pinned }).catch(() => {})}>
                     <Pin size={17} />
-                    {record.value.pinned ? '取消置顶' : '置顶'}
+                    {record.value.pinned ? t('context.unpin') : t('context.pin')}
                   </button>
                   <button role="menuitem" onClick={() => void onUpdate({ starred: !record.value.starred }).catch(() => {})}>
                     <Star size={17} />
-                    {record.value.starred ? '取消收藏' : '收藏'}
+                    {record.value.starred ? t('context.unstar') : t('context.star')}
                   </button>
                   <button role="menuitem" onClick={() => setFindOpen(true)}>
                     <Search size={17} />
-                    篇内查找
+                    {t('editor.findInNote')}
                   </button>
                   <button role="menuitem" onClick={onHistory}>
                     <Clock3 size={17} />
-                    历史版本
+                    {t('editor.history')}
                   </button>
                   <hr role="separator" />
                   <button role="menuitem" onClick={onShare}>
                     <Share2 size={17} />
-                    公开分享
+                    {t('editor.share')}
                   </button>
                   <button role="menuitem" onClick={() => setExport(true)}>
                     <FileDown size={17} />
-                    导出
+                    {t('editor.export')}
                   </button>
                   <button
                     role="menuitem"
@@ -706,22 +745,22 @@ export function NoteEditor({
                         const { printNote } = await import('./export')
                         await printNote(record, surface.current, { keepPaper: false })
                       } catch (e) {
-                        notify('打印失败：' + (e as Error).message)
+                        notify(t('editor.printFailed', { message: (e as Error).message }))
                       }
                     }}
                   >
                     <Printer size={17} />
-                    打印 / PDF
+                    {t('editor.printPdf')}
                   </button>
                   <hr role="separator" />
                   <button role="menuitem" className="text-danger"
                     onClick={() => void writer.flush().then(onDelete).catch(() => {})}>
                     <Trash2 size={17} />
-                    移入最近删除
+                    {t('editor.moveToTrash')}
                   </button>
                 </FluidPopover>
               </div>
-              <IconButton className="mobile-done" label="完成编辑" onClick={finishEditing}>
+              <IconButton className="mobile-done" label={t('editor.doneEditing')} onClick={finishEditing}>
                 <Check size={23} />
               </IconButton>
             </div>
@@ -729,8 +768,8 @@ export function NoteEditor({
           <div className="editor-find" inert={!findOpen}>
             <SearchField
               ref={findInput}
-              label="在这篇备忘中查找"
-              placeholder="篇内查找"
+              label={t('editor.findAria')}
+              placeholder={t('editor.findPlaceholder')}
               value={find}
               onChange={setFind}
               onKeyDown={(event) => {
@@ -740,15 +779,15 @@ export function NoteEditor({
               }}
             >
               <span className="find-count" role="status">
-                {find.trim() && (state?.hitCount ? `${state.hitIndex + 1}/${state.hitCount}` : '无匹配')}
+                {find.trim() && (state?.hitCount ? `${state.hitIndex + 1}/${state.hitCount}` : t('editor.noMatch'))}
               </span>
-              <IconButton label="上一个匹配" disabled={!state?.hitCount} onClick={() => stepMatch(-1)}>
+              <IconButton label={t('editor.prevMatch')} disabled={!state?.hitCount} onClick={() => stepMatch(-1)}>
                 <ChevronUp size={17} />
               </IconButton>
-              <IconButton label="下一个匹配" disabled={!state?.hitCount} onClick={() => stepMatch(1)}>
+              <IconButton label={t('editor.nextMatch')} disabled={!state?.hitCount} onClick={() => stepMatch(1)}>
                 <ChevronDown size={17} />
               </IconButton>
-              <IconButton className="find-close" label="结束查找" onClick={closeFind}><X size={17} /></IconButton>
+              <IconButton className="find-close" label={t('editor.closeFind')} onClick={closeFind}><X size={17} /></IconButton>
             </SearchField>
           </div>
         </div>
@@ -805,8 +844,8 @@ export function NoteEditor({
             ref={titleInputRef}
             className="note-title"
             autoFocus={!record.value.title && !record.value.plainText && matchMedia('(min-width: 701px)').matches}
-            aria-label="备忘标题"
-            placeholder="标题"
+            aria-label={t('editor.titleAria')}
+            placeholder={t('editor.titlePlaceholder')}
             value={title}
             maxLength={500}
             onChange={(e) => {
@@ -816,10 +855,10 @@ export function NoteEditor({
             }}
           />
           <div className="note-meta">
-            <FolderPicker label="移动备忘到文件夹" folders={folders} value={record.value.folderId || ''}
+            <FolderPicker label={t('editor.folderAria')} folders={folders} value={record.value.folderId || ''}
               onChange={(folderId) => void onUpdate({ folderId }).catch(() => {})} />
             <time>
-              {new Date(record.value.createdAt || record.updatedAt).toLocaleString('zh-CN', {
+              {new Date(record.value.createdAt || record.updatedAt).toLocaleString(activeLocale, {
                 month: 'long',
                 day: 'numeric',
                 hour: '2-digit',
@@ -839,15 +878,15 @@ export function NoteEditor({
             <div onFocusCapture={() => closeStyle(false)}><EditorContent editor={editor} /></div>
           </div>
           {wordCount > 0 && (
-            <footer className="word-count">{wordCount} 字</footer>
+            <footer className="word-count">{t('editor.charCount', { count: wordCount })}</footer>
           )}
         </article>
       </div>
       {(scrollJump.top || scrollJump.bottom) && (
-        <div className="editor-scroll-jump glass" aria-label="快速定位">
+        <div className="editor-scroll-jump glass" aria-label={t('editor.quickJumpAria')}>
           {scrollJump.top && (
             <IconButton
-              label="回到顶部"
+              label={t('editor.scrollTop')}
               onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
             >
               <ArrowUp size={18} />
@@ -855,7 +894,7 @@ export function NoteEditor({
           )}
           {scrollJump.bottom && (
             <IconButton
-              label="跳到底部"
+              label={t('editor.scrollBottom')}
               onClick={() =>
                 scrollRef.current?.scrollTo({
                   top: scrollRef.current.scrollHeight,
@@ -875,11 +914,11 @@ export function NoteEditor({
             if ((e.target as HTMLElement).closest('button')) e.preventDefault()
           }}
         >
-          <IconButton label="文字样式" expanded={styleOpen} onClick={toggleStyle}>
+          <IconButton label={t('editor.styleToolbar')} expanded={styleOpen} onClick={toggleStyle}>
             <Type size={22} />
           </IconButton>
           <IconButton
-            label="插入勾选清单"
+            label={t('editor.insertTask')}
             active={state?.task}
             onClick={() =>
               cmd((e) => {
@@ -891,7 +930,7 @@ export function NoteEditor({
           </IconButton>
           <span className="toolbar-divider" />
           <IconButton
-            label="插入图片"
+            label={t('editor.insertImage')}
             onClick={() => {
               if (inputRef.current) {
                 inputRef.current.accept = 'image/*'
@@ -902,7 +941,7 @@ export function NoteEditor({
             <ImagePlus size={22} />
           </IconButton>
           <IconButton
-            label="插入附件"
+            label={t('editor.insertAttachment')}
             onClick={() => {
               if (inputRef.current) {
                 inputRef.current.accept = '*/*'
@@ -913,7 +952,7 @@ export function NoteEditor({
             <Paperclip size={22} />
           </IconButton>
           <span className="toolbar-divider" />
-          <IconButton label="导出备忘" onClick={() => setExport(true)}>
+          <IconButton label={t('editor.exportNote')} onClick={() => setExport(true)}>
             <ArrowDownToLine size={21} />
           </IconButton>
         </div>
@@ -937,15 +976,20 @@ export function NoteEditor({
           }}
         >
           <div className="panel-title">
-            <strong>样式</strong>
-            <IconButton label="关闭样式" onClick={() => closeStyle()}>
+            <strong>{t('editor.stylePanelTitle')}</strong>
+            <IconButton label={t('editor.closeStyle')} onClick={() => closeStyle()}>
               <ChevronDown size={19} />
             </IconButton>
           </div>
           <div className="block-styles">
-            {(['标题', '小标题', '副标题', '正文'] as const).map((label, i) => (
+            {([
+              t('editor.heading1'),
+              t('editor.heading2'),
+              t('editor.heading3'),
+              t('editor.paragraph'),
+            ] as const).map((label, i) => (
               <button
-                key={label}
+                key={i}
                 className={
                   [state?.h1, state?.h2, state?.h3, !state?.h1 && !state?.h2 && !state?.h3][i]
                     ? 'active'
@@ -959,7 +1003,7 @@ export function NoteEditor({
           </div>
           <div className="style-row">
             <IconButton
-              label="加粗"
+              label={t('editor.bold')}
               active={state?.bold}
               onClick={() =>
                 cmd((e) => {
@@ -970,7 +1014,7 @@ export function NoteEditor({
               <Bold />
             </IconButton>
             <IconButton
-              label="斜体"
+              label={t('editor.italic')}
               active={state?.italic}
               onClick={() =>
                 cmd((e) => {
@@ -981,7 +1025,7 @@ export function NoteEditor({
               <Italic />
             </IconButton>
             <IconButton
-              label="下划线"
+              label={t('editor.underline')}
               active={state?.underline}
               onClick={() =>
                 cmd((e) => {
@@ -992,7 +1036,7 @@ export function NoteEditor({
               <UnderlineIcon />
             </IconButton>
             <IconButton
-              label="删除线"
+              label={t('editor.strike')}
               active={state?.strike}
               onClick={() =>
                 cmd((e) => {
@@ -1003,9 +1047,9 @@ export function NoteEditor({
               <Strikethrough />
             </IconButton>
             <ChoiceMenu
-              label="字号"
+              label={t('editor.fontSize')}
               value={state?.fontSize || ''}
-              choices={[{ value: '', label: '默认' }, ...fontSizes.map((size) => ({ value: size, label: size.replace(/px$/, '') }))]}
+              choices={[{ value: '', label: t('common.default') }, ...fontSizes.map((size) => ({ value: size, label: size.replace(/px$/, '') }))]}
               onChange={(size) =>
                 cmd((ed) => {
                   if (size) chain(ed).setFontSize(size).run()
@@ -1016,7 +1060,7 @@ export function NoteEditor({
           </div>
           <div className="style-row">
             <IconButton
-              label="文字颜色"
+              label={t('editor.textColor')}
               className="color-toggle-btn"
               active={colorTray === 'ink' || !!state?.color}
               onClick={() => setColorTray((v) => (v === 'ink' ? null : 'ink'))}
@@ -1031,7 +1075,7 @@ export function NoteEditor({
               </span>
             </IconButton>
             <IconButton
-              label="高亮颜色"
+              label={t('editor.highlightColor')}
               className="color-toggle-btn"
               active={colorTray === 'highlight' || !!state?.highlight}
               onClick={() => setColorTray((v) => (v === 'highlight' ? null : 'highlight'))}
@@ -1050,19 +1094,19 @@ export function NoteEditor({
                 />
               </span>
             </IconButton>
-            {[
-              [AlignLeft, 'left', '左对齐'],
-              [AlignCenter, 'center', '居中'],
-              [AlignRight, 'right', '右对齐'],
-            ].map(([Icon, align, label]) => {
-              const I = Icon as typeof AlignLeft
+            {([
+              [AlignLeft, 'left', t('editor.alignLeft')],
+              [AlignCenter, 'center', t('editor.alignCenter')],
+              [AlignRight, 'right', t('editor.alignRight')],
+            ] as const).map(([Icon, align, label]) => {
+              const I = Icon
               return (
                 <IconButton
-                  key={String(align)}
-                  label={String(label)}
+                  key={align}
+                  label={label}
                   onClick={() =>
                     cmd((e) => {
-                      chain(e).setTextAlign(String(align)).run()
+                      chain(e).setTextAlign(align).run()
                     })
                   }
                 >
@@ -1072,14 +1116,14 @@ export function NoteEditor({
             })}
           </div>
           {colorTray && (
-            <div className="style-swatches" role="group" aria-label={colorTray === 'ink' ? '选择文字颜色' : '选择高亮颜色'}>
-              <span>{colorTray === 'ink' ? '字色' : '高亮'}</span>
+            <div className="style-swatches" role="group" aria-label={colorTray === 'ink' ? t('editor.selectTextColor') : t('editor.selectHighlightColor')}>
+              <span>{colorTray === 'ink' ? t('editor.inkLabel') : t('editor.highlightLabel')}</span>
               {colorTray === 'ink'
                 ? INK_OPTIONS.map((item) => (
                     <ColorDot
                       key={item.id || 'default'}
                       color={item.cssVar}
-                      label={item.label}
+                      label={t(INK_LABEL_KEYS[item.id])}
                       className={item.id ? 'swatch-ink' : 'swatch-default-ink'}
                       selected={(state?.color || '') === item.id}
                       onClick={() =>
@@ -1094,7 +1138,7 @@ export function NoteEditor({
                     <ColorDot
                       key={item.id || 'clear'}
                       color={item.cssVar}
-                      label={item.label}
+                      label={t(HIGHLIGHT_LABEL_KEYS[item.id])}
                       className={item.id ? 'swatch-hl' : 'is-clear'}
                       selected={(state?.highlight || '') === item.id}
                       onClick={() =>
@@ -1109,7 +1153,7 @@ export function NoteEditor({
           )}
           <div className="style-row">
             <IconButton
-              label="无序列表"
+              label={t('editor.bulletList')}
               active={state?.bullet}
               onClick={() =>
                 cmd((e) => {
@@ -1120,7 +1164,7 @@ export function NoteEditor({
               <List />
             </IconButton>
             <IconButton
-              label="有序列表"
+              label={t('editor.orderedList')}
               active={state?.ordered}
               onClick={() =>
                 cmd((e) => {
@@ -1131,7 +1175,7 @@ export function NoteEditor({
               <ListOrdered />
             </IconButton>
             <IconButton
-              label="勾选列表"
+              label={t('editor.taskList')}
               active={state?.task}
               onClick={() =>
                 cmd((e) => {
@@ -1142,7 +1186,7 @@ export function NoteEditor({
               <ListTodo />
             </IconButton>
             <IconButton
-              label="减少缩进"
+              label={t('editor.indentDecrease')}
               onClick={() =>
                 cmd((e) => {
                   chain(e)
@@ -1154,7 +1198,7 @@ export function NoteEditor({
               <IndentDecrease />
             </IconButton>
             <IconButton
-              label="增加缩进"
+              label={t('editor.indentIncrease')}
               onClick={() =>
                 cmd((e) => {
                   chain(e)
@@ -1166,8 +1210,8 @@ export function NoteEditor({
               <IndentIncrease />
             </IconButton>
           </div>
-          <div className="style-spacing" role="group" aria-label="行距">
-            <span>行距</span>
+          <div className="style-spacing" role="group" aria-label={t('editor.lineSpacingAria')}>
+            <span>{t('editor.lineSpacingLabel')}</span>
             <div className="spacing-pills">
               {lineSpacings.map((item) => (
                 <button
@@ -1179,18 +1223,18 @@ export function NoteEditor({
                     localStorage.setItem('yonote:lineSpacing', item.key)
                   }}
                 >
-                  {item.label}
+                  {t(item.labelKey)}
                 </button>
               ))}
             </div>
           </div>
           <div className="style-backgrounds">
-            <span>纸张</span>
+            <span>{t('editor.paperLabel')}</span>
             {PAPER_OPTIONS.map((item) => (
               <ColorDot
                 key={item.id || 'default'}
                 color={item.swatchVar}
-                label={item.label}
+                label={t(PAPER_LABEL_KEYS[item.id])}
                 className={item.id ? 'swatch-paper' : 'swatch-paper swatch-default-paper'}
                 selected={paper === item.id}
                 onClick={() => void onUpdate({ bgColor: item.id })}
@@ -1203,12 +1247,12 @@ export function NoteEditor({
               checked={original}
               onChange={(e) => setOriginal(e.target.checked)}
             />
-            插入图片时保留原图
+            {t('editor.keepOriginalImage')}
           </label>
         </div>
       )}
       {exportOpen && (
-        <Modal ref={exportDialog} title="导出备忘" onClose={() => setExport(false)}>
+        <Modal ref={exportDialog} title={t('exportModal.title')} onClose={() => setExport(false)}>
           {paper && (
             <label className="export-paper-option">
               <input
@@ -1217,7 +1261,7 @@ export function NoteEditor({
                 onChange={(e) => setExportKeepPaper(e.target.checked)}
               />
               <span className="export-paper-swatch" style={{ background: paperMeta.lightSurface }} aria-hidden="true" />
-              <span>导出图片 / PDF 时保留纸张底色（{paperMeta.label}）</span>
+              <span>{t('exportModal.keepPaper', { paper: t(PAPER_LABEL_KEYS[paperMeta.id]) })}</span>
             </label>
           )}
           <div className="export-options">
@@ -1232,18 +1276,18 @@ export function NoteEditor({
                     const { exportNote } = await import('./export')
                     await exportNote(type, record, editor!, surface.current!, { keepPaper })
                     if (type === 'pdf') {
-                      notify('已打开打印 / PDF 预览')
+                      notify(t('exportModal.pdfOpened'))
                     } else {
-                      notify('已导出 ' + type.toUpperCase())
+                      notify(t('exportModal.exported', { type: type.toUpperCase() }))
                       exportDialog.current?.dismiss()
                     }
                   } catch (e) {
-                    notify('导出失败：' + (e as Error).message)
+                    notify(t('exportModal.failed', { message: (e as Error).message }))
                   }
                 }}
               >
                 <FileDown />
-                {{ md: 'Markdown 文档', png: '长图片 PNG', pdf: 'PDF 文档' }[type]}
+                {t(`exportModal.${type}`)}
               </button>
             ))}
           </div>

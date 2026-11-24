@@ -1,3 +1,4 @@
+import i18n, { translateServerError } from './i18n'
 import { advanceCursor, applyPull, applyReceipt, type NoteDB } from './store'
 import type { Outbox, RecordData, Receipt, Session } from './types'
 
@@ -49,9 +50,10 @@ export async function api<T>(session: Session, path: string, init: RequestInit =
     signal: init.signal ?? AbortSignal.timeout(60000),
   })
   if (!res.ok) {
-    let message = '服务器请求失败（' + res.status + '）'
+    let message = i18n.t('sync.serverRequestFailed', { status: res.status })
     try {
-      message = (await res.json()).error || message
+      const serverMsg = (await res.json()).error
+      if (serverMsg) message = translateServerError(String(serverMsg))
     } catch {}
     throw Error(message)
   }
@@ -135,16 +137,16 @@ export class SyncEngine {
   async run() {
     if (this.running || this.stopped) return
     if (!this.session) {
-      this.report({ status: 'local', message: '已保存在本机' })
+      this.report({ status: 'local', message: i18n.t('sync.savedLocally') })
       return
     }
     if (!navigator.onLine) {
-      this.report({ status: 'offline', message: '离线记录，联网自动同步' })
+      this.report({ status: 'offline', message: i18n.t('sync.offlineQueued') })
       this.schedule(10000)
       return
     }
     this.running = true
-    this.report({ status: 'syncing', message: '正在同步…' })
+    this.report({ status: 'syncing', message: i18n.t('sync.syncing') })
     try {
       let outgoingError: unknown
       let pushedAny = false
@@ -255,14 +257,14 @@ export class SyncEngine {
       if (!pending) this.lastSyncedAt = Date.now()
       this.report(
         pending
-          ? { status: 'syncing', message: '本机更改已保存，正在继续同步…' }
-          : { status: 'synced', message: '所有更改已同步', last: new Date().toISOString() },
+          ? { status: 'syncing', message: i18n.t('sync.partialSynced') }
+          : { status: 'synced', message: i18n.t('sync.allSynced'), last: new Date().toISOString() },
       )
     } catch (e) {
       this.retries++
       this.report({
         status: navigator.onLine ? 'error' : 'offline',
-        message: e instanceof Error ? e.message : '同步稍后重试',
+        message: e instanceof Error ? translateServerError(e.message) : i18n.t('sync.retryLater'),
       })
     } finally {
       this.running = false

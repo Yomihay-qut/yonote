@@ -1,3 +1,4 @@
+import i18n, { currentLocale, type SupportedLocale } from './i18n'
 import type { Doc, LocalRecord, RecordSummary } from './types'
 
 export function firstImage(doc?: Doc): string | undefined {
@@ -19,33 +20,56 @@ export function summarize(record: LocalRecord): RecordSummary {
   }
 }
 export type SortOrder = 'updated' | 'created' | 'title' | 'manual'
-export function sortRecords(records: RecordSummary[], sort: SortOrder) {
+export function sortRecords(
+  records: RecordSummary[],
+  sort: SortOrder,
+  locale: string = currentLocale(),
+) {
   return [...records].sort(
     (a, b) =>
       Number(!!b.value.pinned) - Number(!!a.value.pinned) ||
       (sort === 'manual'
         ? (a.value.sort || 0) - (b.value.sort || 0)
         : sort === 'title'
-          ? (a.value.title || '').localeCompare(b.value.title || '', 'zh-CN')
+          ? (a.value.title || '').localeCompare(b.value.title || '', locale)
           : sort === 'created'
             ? (b.value.createdAt || b.updatedAt).localeCompare(a.value.createdAt || a.updatedAt)
             : b.updatedAt.localeCompare(a.updatedAt)),
   )
 }
-export function groupRecords(records: RecordSummary[], enabled: boolean, today = new Date()) {
+function formatMonthGroupLabel(date: Date, locale: SupportedLocale): string {
+  if (locale === 'zh-CN' || locale === 'ja') {
+    return `${date.getFullYear()}年${date.getMonth() + 1}月`
+  }
+  if (locale === 'ko') {
+    return `${date.getFullYear()}년 ${date.getMonth() + 1}월`
+  }
+  return new Intl.DateTimeFormat('en', { year: 'numeric', month: 'long' }).format(date)
+}
+export function groupRecords(
+  records: RecordSummary[],
+  enabled: boolean,
+  today = new Date(),
+  locale: SupportedLocale = currentLocale(),
+) {
   if (!enabled) return [{ label: '', records }]
   const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()
+  const yesterdayStart = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate() - 1,
+  ).getTime()
   const groups: { label: string; records: RecordSummary[] }[] = []
   for (const record of records) {
     const date = new Date(record.updatedAt)
     const day = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
     const label = record.value.pinned
-      ? '置顶'
+      ? i18n.t('group.pinned', { lng: locale })
       : day >= start
-        ? '今天'
-        : day >= new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1).getTime()
-          ? '昨天'
-          : `${date.getFullYear()}年${date.getMonth() + 1}月`
+        ? i18n.t('group.today', { lng: locale })
+        : day >= yesterdayStart
+          ? i18n.t('group.yesterday', { lng: locale })
+          : formatMonthGroupLabel(date, locale)
     let group = groups.find((g) => g.label === label)
     if (!group) {
       group = { label, records: [] }

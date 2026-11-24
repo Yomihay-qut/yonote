@@ -8,7 +8,7 @@ COPY web/ ./
 RUN npm run build
 
 FROM golang:1.25-alpine AS server-builder
-ARG APP_VERSION=0.9.1
+ARG APP_VERSION=1.0.0
 WORKDIR /src/server
 COPY server/go.mod server/go.sum ./
 RUN go mod download
