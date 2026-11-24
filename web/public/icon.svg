@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#feda68"/>
+      <stop offset="100%" stop-color="#df9112"/>
+    </linearGradient>
+    <linearGradient id="pill" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#f8ca52"/>
+      <stop offset="100%" stop-color="#eba524"/>
+    </linearGradient>
+    <filter id="sh" x="-20%" y="-15%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#9e5a00" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+  <rect width="128" height="128" rx="30" fill="url(#bg)"/>
+  <g filter="url(#sh)">
+    <path d="M42 26h44c6.6 0 12 5.4 12 12v44c0 3.2-1.3 6.2-3.5 8.5l-9 9c-2.3 2.2-5.3 3.5-8.5 3.5H42c-6.6 0-12-5.4-12-12V38c0-6.6 5.4-12 12-12z" fill="#fffdf9"/>
+    <path d="M77 103V90c0-4.4 3.6-8 8-8h13c0 3.2-1.3 6.2-3.5 8.5l-9 9c-2.3 2.2-5.3 3.5-8.5 3.5z" fill="#eadec7"/>
+  </g>
+  <rect x="41" y="38" width="46" height="10" rx="5" fill="url(#pill)"/>
+  <circle cx="47" cy="63" r="6.2" fill="#e9a01b"/>
+  <path d="M44.1 63.1l2.1 2.1 4-4.3" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M59 63h26M59 75h26M59 87h15" fill="none" stroke="#65594b" stroke-width="4.4" stroke-linecap="round"/>
+</svg>

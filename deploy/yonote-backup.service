@@ -1,0 +1,7 @@
+[Unit]
+Description=Back up Yonote to a dedicated private repository
+
+[Service]
+Type=oneshot
+Environment=BACKUP_REPO=/srv/private-yonote-backup
+ExecStart=/opt/yonote/deploy/backup.sh

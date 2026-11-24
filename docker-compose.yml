@@ -1,0 +1,21 @@
+services:
+  yonote:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: yonote
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8787:8787"
+    environment:
+      # Only used on first boot when the database has no users yet.
+      YONOTE_ADMIN: admin
+      YONOTE_PASSWORD: REPLACE_WITH_A_STRONG_PASSWORD_12_CHARS
+      # Set to your actual public HTTPS origin (without trailing slash).
+      YONOTE_ORIGIN: https://notes.example.com
+      TZ: Asia/Shanghai
+    volumes:
+      - yonote_data:/data
+
+volumes:
+  yonote_data:

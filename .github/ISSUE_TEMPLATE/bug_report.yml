@@ -1,0 +1,43 @@
+name: Bug 反馈
+description: 报告功能异常、显示错乱或同步/导出问题
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 简明描述发生了什么，以及你的预期结果。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开某篇笔记
+        2. 执行某操作
+        3. 观察到异常现象
+    validations:
+      required: true
+  - type: dropdown
+    id: client
+    attributes:
+      label: 使用端
+      options:
+        - Web 浏览器（桌面）
+        - Web / PWA（Windows / macOS）
+        - Web 浏览器（移动端）
+        - Android APK
+        - 服务端 / Docker / MCP
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本号
+      placeholder: 例如 v0.9.0
+  - type: textarea
+    id: extra
+    attributes:
+      label: 截图或日志（可选）
+      description: 如有截图、录屏或控制台报错可附在这里。

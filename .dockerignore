@@ -1,0 +1,15 @@
+.git
+.github
+data
+docs
+*.db
+*.db-shm
+*.db-wal
+*.log
+*.md
+web/node_modules
+web/dist
+web/android
+web/tsconfig.tsbuildinfo
+server/server
+server/server.exe
