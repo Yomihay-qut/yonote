@@ -584,3 +584,77 @@ func TestSyncStateDeltaHashShortCircuitCompactAndInstantDedup(t *testing.T) {
 		t.Fatalf("instant-dedup attachment not downloadable: %d %q", dl.Code, dl.Body.String())
 	}
 }
+
+func TestFirstRunWebSetupAndEmbeddedUI(t *testing.T) {
+	a, e := openApp(t.TempDir(), "", "https://notes.example.test")
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer a.db.Close()
+	if e = a.bootstrap("", ""); e != nil {
+		t.Fatalf("empty bootstrap should allow web setup, got: %v", e)
+	}
+	h := a.routes()
+	req := func(method, path string, body any) *httptest.ResponseRecorder {
+		var rBody io.Reader
+		if body != nil {
+			raw, _ := json.Marshal(body)
+			rBody = bytes.NewReader(raw)
+		}
+		r := httptest.NewRequest(method, path, rBody)
+		r.Header.Set("Content-Type", "application/json")
+		r.Header.Set("Origin", "http://tauri.localhost")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w
+	}
+
+	// 1. Embedded web UI serves index.html & allows Tauri CORS preflight.
+	webRes := req("GET", "/", nil)
+	if webRes.Code != 200 || !strings.Contains(webRes.Body.String(), "<title>") {
+		t.Fatalf("embedded web fallback failed: %d", webRes.Code)
+	}
+	if got := webRes.Header().Get("Access-Control-Allow-Origin"); got != "http://tauri.localhost" {
+		t.Fatalf("expected Tauri CORS allow-origin, got %q", got)
+	}
+
+	// 2. Fresh DB reports needsSetup = true.
+	var status struct {
+		NeedsSetup bool `json:"needsSetup"`
+	}
+	mustJSON(t, req("GET", "/api/setup", nil), 200, &status)
+	if !status.NeedsSetup {
+		t.Fatal("expected needsSetup=true before initialization")
+	}
+
+	// 3. Reject weak password < 12 chars.
+	mustJSON(t, req("POST", "/api/setup", map[string]string{
+		"username": "admin",
+		"password": "short",
+		"device":   "桌面端",
+	}), 400, nil)
+
+	// 4. Create first admin & return bearer session.
+	var setupRes struct {
+		Token string `json:"token"`
+		User  user   `json:"user"`
+	}
+	mustJSON(t, req("POST", "/api/setup", map[string]string{
+		"username": "admin",
+		"password": "correct-horse-battery",
+		"device":   "Windows 桌面",
+	}), 200, &setupRes)
+	if setupRes.Token == "" || !setupRes.User.Admin || setupRes.User.Username != "admin" {
+		t.Fatalf("unexpected setup response: %#v", setupRes)
+	}
+
+	// 5. Subsequent status reports needsSetup = false & POST /api/setup locks out with 403.
+	mustJSON(t, req("GET", "/api/setup", nil), 200, &status)
+	if status.NeedsSetup {
+		t.Fatal("expected needsSetup=false after admin initialized")
+	}
+	mustJSON(t, req("POST", "/api/setup", map[string]string{
+		"username": "attacker",
+		"password": "correct-horse-battery",
+	}), 403, nil)
+}

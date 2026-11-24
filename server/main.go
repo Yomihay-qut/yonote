@@ -12,6 +12,7 @@ import (
 	"errors"
 	"flag"
 	"io"
+	"io/fs"
 	"log"
 	"mime"
 	"net/http"
@@ -29,7 +30,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-var appVersion = "0.9.0"
+var appVersion = "0.9.1"
 
 type app struct {
 	db               *sql.DB
@@ -220,10 +221,14 @@ func (a *app) bootstrap(username, password string) error {
 	if n > 0 {
 		return nil
 	}
+	if strings.TrimSpace(username) == "" && password == "" {
+		log.Printf("首次启动：尚未创建管理员账号，请打开网页「设置 → 账号与同步」完成初始化（或通过 YONOTE_ADMIN / YONOTE_PASSWORD 环境变量静默创建）")
+		return nil
+	}
 	if len(password) < 12 || strings.TrimSpace(username) == "" {
 		return errors.New("first start: set YONOTE_ADMIN and YONOTE_PASSWORD (at least 12 characters)")
 	}
-	_, e := a.db.Exec("INSERT INTO users(id,username,pass,admin) VALUES(?,?,?,1)", randomID(), username, passwordHash(password))
+	_, e := a.db.Exec("INSERT INTO users(id,username,pass,admin) VALUES(?,?,?,1)", randomID(), strings.TrimSpace(username), passwordHash(password))
 	return e
 }
 func output(w http.ResponseWriter, status int, v any) {
@@ -282,6 +287,8 @@ func (a *app) routes() http.Handler {
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		output(w, 200, map[string]string{"status": "ok"})
 	})
+	mux.HandleFunc("GET /api/setup", a.setupStatus)
+	mux.HandleFunc("POST /api/setup", a.setup)
 	mux.HandleFunc("POST /api/login", a.login)
 	mux.HandleFunc("GET /api/me", a.auth(false, func(w http.ResponseWriter, r *http.Request, u user) error { output(w, 200, u); return nil }))
 	mux.HandleFunc("POST /api/sync", a.auth(false, a.push))
@@ -330,7 +337,12 @@ func (a *app) routes() http.Handler {
 			w.Header().Set("Cache-Control", "no-store")
 		}
 		origin := r.Header.Get("Origin")
-		allowed := origin == "https://localhost" || origin == "capacitor://localhost" || origin == "http://localhost" || origin == a.origin
+		allowed := origin == "https://localhost" ||
+			origin == "capacitor://localhost" ||
+			origin == "http://localhost" ||
+			origin == "https://tauri.localhost" ||
+			origin == "http://tauri.localhost" ||
+			origin == a.origin
 		if allowed && origin != "" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
@@ -348,28 +360,119 @@ func (a *app) routes() http.Handler {
 		mux.ServeHTTP(w, r)
 	})
 }
+func (a *app) serveEmbeddedFile(w http.ResponseWriter, r *http.Request, webFS fs.FS, name string) bool {
+	f, err := webFS.Open(name)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil || info.IsDir() {
+		return false
+	}
+	rs, ok := f.(io.ReadSeeker)
+	if !ok {
+		return false
+	}
+	if strings.HasSuffix(name, ".webmanifest") {
+		w.Header().Set("Content-Type", "application/manifest+json; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-cache")
+	} else if name == "sw.js" || name == "index.html" {
+		w.Header().Set("Cache-Control", "no-cache")
+	}
+	http.ServeContent(w, r, info.Name(), info.ModTime(), rs)
+	return true
+}
 func (a *app) serveWeb(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/api/") {
 		output(w, 404, map[string]string{"error": "接口不存在"})
 		return
 	}
-	cleanWeb := filepath.Clean(a.web)
 	rel := strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")
-	p := filepath.Join(cleanWeb, filepath.FromSlash(rel))
-	if p == cleanWeb || strings.HasPrefix(p, cleanWeb+string(filepath.Separator)) {
-		if s, e := os.Stat(p); e == nil && !s.IsDir() {
-			if strings.HasSuffix(p, ".webmanifest") {
-				w.Header().Set("Content-Type", "application/manifest+json; charset=utf-8")
-				w.Header().Set("Cache-Control", "no-cache")
-			} else if strings.HasSuffix(p, string(filepath.Separator)+"sw.js") {
-				w.Header().Set("Cache-Control", "no-cache")
+	if a.web != "" {
+		cleanWeb := filepath.Clean(a.web)
+		p := filepath.Join(cleanWeb, filepath.FromSlash(rel))
+		if p == cleanWeb || strings.HasPrefix(p, cleanWeb+string(filepath.Separator)) {
+			if st, err := os.Stat(p); err == nil && !st.IsDir() {
+				if strings.HasSuffix(p, ".webmanifest") {
+					w.Header().Set("Content-Type", "application/manifest+json; charset=utf-8")
+					w.Header().Set("Cache-Control", "no-cache")
+				} else if strings.HasSuffix(p, string(filepath.Separator)+"sw.js") {
+					w.Header().Set("Cache-Control", "no-cache")
+				}
+				http.ServeFile(w, r, p)
+				return
 			}
-			http.ServeFile(w, r, p)
+		}
+		if s, e := os.Stat(filepath.Join(cleanWeb, "index.html")); e == nil && !s.IsDir() {
+			w.Header().Set("Cache-Control", "no-cache")
+			http.ServeFile(w, r, filepath.Join(cleanWeb, "index.html"))
 			return
 		}
 	}
-	w.Header().Set("Cache-Control", "no-cache")
-	http.ServeFile(w, r, filepath.Join(cleanWeb, "index.html"))
+	if webFS := embeddedWeb(); webFS != nil {
+		if rel != "" && a.serveEmbeddedFile(w, r, webFS, rel) {
+			return
+		}
+		if a.serveEmbeddedFile(w, r, webFS, "index.html") {
+			return
+		}
+	}
+	http.NotFound(w, r)
+}
+func (a *app) setupStatus(w http.ResponseWriter, r *http.Request) {
+	var n int
+	if e := a.db.QueryRow("SELECT count(*) FROM users").Scan(&n); e != nil {
+		fail(w, e)
+		return
+	}
+	output(w, 200, map[string]bool{"needsSetup": n == 0})
+}
+func (a *app) setup(w http.ResponseWriter, r *http.Request) {
+	var in struct{ Username, Password, Device string }
+	if e := decodeLimit(w, r, &in, 4<<10); e != nil {
+		fail(w, e)
+		return
+	}
+	username := strings.TrimSpace(in.Username)
+	if len(username) < 2 || len(username) > 64 {
+		fail(w, bad("用户名长度需在 2 到 64 个字符之间"))
+		return
+	}
+	if len(in.Password) < 12 || len(in.Password) > 256 {
+		fail(w, bad("管理员密码至少需要 12 位字符"))
+		return
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	var n int
+	if e := a.db.QueryRow("SELECT count(*) FROM users").Scan(&n); e != nil {
+		fail(w, e)
+		return
+	}
+	if n > 0 {
+		fail(w, apiError{403, "系统已完成初始化，请直接登录"})
+		return
+	}
+	uid := randomID()
+	if _, e := a.db.Exec("INSERT INTO users(id,username,pass,admin) VALUES(?,?,?,1)", uid, username, passwordHash(in.Password)); e != nil {
+		fail(w, e)
+		return
+	}
+	token := randomToken()
+	device := strings.TrimSpace(in.Device)
+	if len(device) > 100 {
+		device = device[:100]
+	}
+	if device == "" {
+		device = "管理员设备"
+	}
+	if _, e := a.db.Exec("INSERT INTO devices(id,user_id,name,token,last_seen) VALUES(?,?,?,?,?)", randomID(), uid, device, hashToken(token), now()); e != nil {
+		fail(w, e)
+		return
+	}
+	u := user{ID: uid, Username: username, Admin: true, Quota: 2147483648, Used: 0}
+	output(w, 200, map[string]any{"token": token, "user": u})
 }
 func (a *app) login(w http.ResponseWriter, r *http.Request) {
 	var in struct{ Username, Password, Device string }
@@ -431,7 +534,7 @@ func (a *app) login(w http.ResponseWriter, r *http.Request) {
 func main() {
 	addr := flag.String("addr", "127.0.0.1:8787", "listen address")
 	dir := flag.String("data", "./data", "data directory")
-	web := flag.String("web", "../web/dist", "web assets")
+	web := flag.String("web", "", "optional external web assets directory (defaults to embedded UI)")
 	backup := flag.String("backup", "", "write consistent SQLite snapshot and exit")
 	flag.Parse()
 	a, e := openApp(*dir, *web, os.Getenv("YONOTE_ORIGIN"))

@@ -37,6 +37,7 @@ jobs:
           retention-days: 7
 
   server:
+    needs: web
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -44,12 +45,16 @@ jobs:
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
+      - uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: server/webdist
       - name: Test and vet backend
         working-directory: server
         run: |
           go vet ./...
           go test -count=1 -v ./...
-      - name: Build portable server binaries
+      - name: Build single-binary Linux servers (with embedded web UI)
         working-directory: server
         env:
           CGO_ENABLED: '0'
@@ -58,7 +63,6 @@ jobs:
           VER="${GITHUB_REF_NAME#v}"
           GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.appVersion=${VER}" -o ../release/yonote-linux-amd64 .
           GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w -X main.appVersion=${VER}" -o ../release/yonote-linux-arm64 .
-          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.appVersion=${VER}" -o ../release/yonote-windows-amd64.exe .
       - uses: actions/upload-artifact@v4
         with:
           name: server
@@ -152,9 +156,44 @@ jobs:
           path: web/release/yonote.apk
           retention-days: 14
 
+  windows:
+    if: github.event_name != 'pull_request'
+    needs: web
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+      - uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: web/dist
+      - name: Build Windows desktop client (Tauri v2 NSIS + portable)
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          npx --yes @tauri-apps/cli@2 build --bundles nsis
+          New-Item -ItemType Directory -Force -Path ../release-win | Out-Null
+          $portable = "src-tauri/target/release/yonote-desktop.exe"
+          if (!(Test-Path $portable)) { throw "Missing portable exe: $portable" }
+          Copy-Item $portable "../release-win/yonote-windows-portable.exe"
+          $setup = Get-ChildItem "src-tauri/target/release/bundle/nsis/*-setup.exe" | Select-Object -First 1
+          if (!$setup) { throw "Missing NSIS setup installer" }
+          Copy-Item $setup.FullName "../release-win/yonote-windows-setup.exe"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: release-win/
+          retention-days: 14
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [web, server, docker, android]
+    needs: [web, server, docker, android, windows]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -165,24 +204,21 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - name: Package complete self-hosted app
+      - name: Package client installers and self-hosted server bundles
         run: |
-          mkdir -p release bundle/web bundle/deploy
-          cp -a artifacts/web/. bundle/web/
+          mkdir -p release bundle/deploy
           cp -a deploy/. bundle/deploy/
           cp README.md LICENSE bundle/
-          cd artifacts/web && zip -qr ../../release/yonote-web.zip . && cd ../..
           if [ -f artifacts/android/yonote.apk ]; then
-            cp artifacts/android/yonote.apk "release/yonote-${GITHUB_REF_NAME}.apk"
+            cp artifacts/android/yonote.apk "release/yonote-android-${GITHUB_REF_NAME}.apk"
           fi
+          cp artifacts/windows/yonote-windows-setup.exe "release/yonote-windows-setup-${GITHUB_REF_NAME}.exe"
+          cp artifacts/windows/yonote-windows-portable.exe "release/yonote-windows-portable-${GITHUB_REF_NAME}.exe"
           for platform in linux-amd64 linux-arm64; do
             cp "artifacts/server/yonote-${platform}" bundle/yonote
             chmod +x bundle/yonote
-            tar -C bundle -czf "release/yonote-${platform}-${GITHUB_REF_NAME}.tar.gz" .
+            tar -C bundle -czf "release/yonote-server-${platform}-${GITHUB_REF_NAME}.tar.gz" .
           done
-          cp artifacts/server/yonote-windows-amd64.exe bundle/yonote.exe
-          rm bundle/yonote
-          cd bundle && zip -qr "../release/yonote-windows-amd64-${GITHUB_REF_NAME}.zip" . && cd ..
           cd release && sha256sum * > SHA256SUMS.txt
       - name: Publish repository release
         env:

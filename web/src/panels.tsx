@@ -65,6 +65,7 @@ const dateText = (s: string) =>
     minute: '2-digit',
   })
 const isMobileDevice = (name: string) => /安卓|手机|平板|android|iphone|ipad|mobile|tablet/i.test(name)
+const isDesktopApp = () => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 const hostLabel = (url: string) => url.replace(/^https?:\/\//i, '').replace(/\/$/, '')
 
 export function Settings({
@@ -90,13 +91,20 @@ export function Settings({
   const [server, setServer] = useState(
       () =>
         session?.base ||
-        (!Capacitor.isNativePlatform() && location.protocol.startsWith('http') ? location.origin : ''),
+        (!Capacitor.isNativePlatform() && !isDesktopApp() && location.protocol.startsWith('http')
+          ? location.origin
+          : ''),
     ),
     [username, setUsername] = useState(''),
     [password, setPassword] = useState(''),
     [device, setDevice] = useState(
-      /Android/i.test(navigator.userAgent) ? '我的安卓设备' : '我的电脑',
-    )
+      /Android/i.test(navigator.userAgent)
+        ? '我的安卓设备'
+        : isDesktopApp()
+          ? '我的 Windows 电脑'
+          : '我的电脑',
+    ),
+    [needsSetup, setNeedsSetup] = useState(false)
   const [me, setMe] = useState<User | null>(session?.user || null),
     [devices, setDevices] = useState<Device[]>([]),
     [keys, setKeys] = useState<ApiKeyInfo[]>([]),
@@ -156,6 +164,40 @@ export function Settings({
   useEffect(() => {
     if (session) void task(refresh)
   }, [session, task, refresh])
+  useEffect(() => {
+    if (session || tab !== 'account') {
+      setNeedsSetup(false)
+      return
+    }
+    let candidate = ''
+    try {
+      if (server.trim()) candidate = normalizeBase(server)
+      else if (!Capacitor.isNativePlatform() && !isDesktopApp() && location.protocol.startsWith('http'))
+        candidate = ''
+      else {
+        setNeedsSetup(false)
+        return
+      }
+    } catch {
+      setNeedsSetup(false)
+      return
+    }
+    const ctrl = new AbortController()
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await fetch(candidate + '/api/setup', { signal: ctrl.signal })
+        if (!res.ok) return
+        const data = (await res.json()) as { needsSetup?: boolean }
+        if (!ctrl.signal.aborted) setNeedsSetup(!!data.needsSetup)
+      } catch {
+        if (!ctrl.signal.aborted) setNeedsSetup(false)
+      }
+    }, 260)
+    return () => {
+      window.clearTimeout(timer)
+      ctrl.abort()
+    }
+  }, [session, tab, server])
   async function finishConnection(next: Session | null, message: string) {
     await flushEdits()
     const commit = () => {
@@ -168,17 +210,19 @@ export function Settings({
     e.preventDefault()
     await task(async () => {
       const base = normalizeBase(server)
-      const res = await fetch(base + '/api/login', {
+      const endpoint = needsSetup ? '/api/setup' : '/api/login'
+      const res = await fetch(base + endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: username.trim(), password, device }),
         signal: AbortSignal.timeout(30000),
       })
       const result = await res.json()
-      if (!res.ok) throw Error(result.error || '连接失败，请检查地址和账号')
+      if (!res.ok) throw Error(result.error || (needsSetup ? '初始化失败，请检查输入' : '连接失败，请检查地址和账号'))
       const next: Session = { base, token: result.token, user: result.user }
       setPassword('')
-      await finishConnection(next, '已连接 ' + result.user.username + '，正在同步')
+      setNeedsSetup(false)
+      await finishConnection(next, (needsSetup ? '已初始化管理员 ' : '已连接 ') + result.user.username + '，正在同步')
     })
   }
   function logout() {
@@ -416,7 +460,7 @@ export function Settings({
                   />
                 </label>
               </div>
-              <div className="version-label">便签 · v0.9.0</div>
+              <div className="version-label">便签 · v0.9.1</div>
             </div>
           )}
 
@@ -761,6 +805,9 @@ export function Settings({
                 </>
               ) : (
                 <form className="panel-card form-card" onSubmit={login}>
+                  {needsSetup && (
+                    <p className="small muted">首次启动该服务端，创建首个管理员账号即可开始同步（密码至少 12 位）。</p>
+                  )}
                   <label className="form-field">
                     服务器地址
                     <input
@@ -768,7 +815,7 @@ export function Settings({
                       value={server}
                       onChange={(e) => setServer(e.target.value)}
                       placeholder="https://notes.example.com"
-                      required={Capacitor.isNativePlatform()}
+                      required={Capacitor.isNativePlatform() || isDesktopApp()}
                       autoComplete="url"
                     />
                   </label>
@@ -782,7 +829,7 @@ export function Settings({
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         autoComplete="username"
-                        placeholder="用户名"
+                        placeholder={needsSetup ? '设置管理员用户名' : '用户名'}
                       />
                     </label>
                     <label className="form-field">
@@ -800,21 +847,22 @@ export function Settings({
                     密码
                     <input
                       required
+                      minLength={needsSetup ? 12 : undefined}
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      autoComplete="current-password"
-                      placeholder="输入密码"
+                      autoComplete={needsSetup ? 'new-password' : 'current-password'}
+                      placeholder={needsSetup ? '设置密码（至少 12 位）' : '输入密码'}
                     />
                   </label>
                   <button className="primary full-width" disabled={busy} type="submit">
                     {busy ? (
                       <>
                         <LoaderCircle size={17} className="spin" />
-                        正在连接…
+                        {needsSetup ? '正在初始化…' : '正在连接…'}
                       </>
                     ) : (
-                      '连接账号'
+                      needsSetup ? '初始化管理员并连接' : '连接账号'
                     )}
                   </button>
                 </form>

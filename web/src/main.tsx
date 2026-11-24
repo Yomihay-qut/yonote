@@ -40,8 +40,13 @@ import { Capacitor } from '@capacitor/core'
   } catch {}
 })()
 
-// Native APKs use their bundled assets. Only the browser/PWA needs a service worker.
-if (!Capacitor.isNativePlatform() && !import.meta.env.DEV && 'serviceWorker' in navigator) {
+// Native APKs & Tauri desktop load bundled assets directly. Only browser/PWA needs a service worker.
+if (
+  !Capacitor.isNativePlatform() &&
+  !('__TAURI_INTERNALS__' in window) &&
+  !import.meta.env.DEV &&
+  'serviceWorker' in navigator
+) {
   const register = () => {
     void navigator.serviceWorker
       .register('/sw.js')

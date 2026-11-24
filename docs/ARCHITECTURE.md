@@ -1,18 +1,18 @@
 # 架构设计
 
-Yonote 采用**离线优先（Offline-First）+ 轻量自托管单二进制**架构，Web、PWA 与 Android 共用同一套 React 前端代码。
+Yonote 采用**离线优先（Offline-First）+ 轻量自托管单二进制**架构，Web、PWA、Windows 桌面客户端（Tauri v2）与 Android（Capacitor 8）共用同一套 React 前端代码；服务端通过 `go:embed` 直接内嵌前端资源，支持零前置环境变量的网页首次初始化（`GET/POST /api/setup`）。
 
 ## 系统总览
 
 ```mermaid
 flowchart LR
-    Client["Web / PWA / Android WebView\n(React 19 + TipTap 3)"] --> Local["Dexie / IndexedDB\n(本机记录与附件缓存)"]
+    Client["Web / PWA / Tauri Desktop / Android\n(React 19 + TipTap 3)"] --> Local["Dexie / IndexedDB\n(本机记录与附件缓存)"]
     Local --> Sync["SyncEngine\n(内容哈希短路 + 增量拉取 + 附件秒传)"]
-    Sync -->|"HTTPS + Bearer Token"| Server["Go 1.25 HTTP 服务\n(单二进制，无 CGO)"]
+    Sync -->|"HTTPS + Bearer Token"| Server["Go 1.25 HTTP 服务\n(单二进制 + go:embed 前端)"]
     AI["MCP / AI 客户端\n(Streamable HTTP /mcp)"] -->|"Scoped Bearer Key"| Server
     Server --> SQLite["SQLite (WAL + FTS5)\n(records / history / shares / receipts)"]
     Server --> Blobs["内容寻址附件目录\n(blobs/{user}/{sha256})"]
-    Server -->|"静态资源与 /s/{token} 分享页"| Client
+    Server -->|"内嵌静态资源与 /s/{token} 分享页"| Client
 ```
 
 ## 核心设计

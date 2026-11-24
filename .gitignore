@@ -8,6 +8,10 @@ data/
 *.jks
 server/server
 server/server.exe
+server/webdist/*
+!server/webdist/index.html
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
 package-lock.json
 !web/package-lock.json
 .env
