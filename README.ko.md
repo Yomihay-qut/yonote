@@ -11,7 +11,15 @@
   <a href="https://github.com/Yomihay-qut/yonote/releases"><img alt="Releases" src="https://img.shields.io/github/v/release/Yomihay-qut/yonote" /></a>
 </p>
 
-**셀프 호스팅 · 오프라인 우선** 크로스 플랫폼 메모 및 할 일 앱입니다(시스템·브라우저 언어를 자동 인식하며 중국어 간체 / English / 日本語 / 한국어 지원). Android, Windows 데스크톱, Web / PWA가 동일한 React 클라이언트를 공유하며, 서버는 CGO 없는 단일 바이너리 Go + SQLite(웹 UI 내장)와 세분화된 권한을 갖춘 **AI API 및 Streamable HTTP MCP**를 기본 제공합니다.
+**깔끔하고 조용한 오프라인 우선 · 셀프 호스팅** 크로스 플랫폼 메모 및 할 일 워크스페이스입니다(시스템·브라우저 언어를 자동 인식하며 중국어 간체 / English / 日本語 / 한국어 지원). 정돈된 3단 레이아웃 안에 서식 있는 메모 작성(플로팅 스타일 패널, 줄 간격 및 용지 테마, 체크리스트, 이미지 및 첨부 파일)과 가벼운 할 일 관리를 하나로 담았습니다. 별도 서버 없이도 기기 단독으로 바로 사용할 수 있으며, CGO 없는 단일 바이너리 Go + SQLite 서버에 연결하면 다중 기기 증분 동기화, 버전 기록 Diff 복원, 읽기 전용 공개 공유, 세분화된 권한을 갖춘 **AI API / Streamable HTTP MCP** 연동을 **Windows 데스크톱 · Android · Web / PWA**에서 모두 누릴 수 있습니다.
+
+---
+
+## 화면 미리보기
+
+| 메모 편집 및 플로팅 스타일 패널 | 할 일 관리 및 폴더 작업 공간 |
+| :---: | :---: |
+| ![Yonote 메모 편집 및 스타일 패널](docs/assets/screenshot-notes.jpg) | ![Yonote 할 일 관리 화면](docs/assets/screenshot-todos.png) |
 
 ---
 

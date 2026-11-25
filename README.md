@@ -11,7 +11,15 @@
   <a href="https://github.com/Yomihay-qut/yonote/releases"><img alt="Releases" src="https://img.shields.io/github/v/release/Yomihay-qut/yonote" /></a>
 </p>
 
-一个**可自托管、离线优先**的跨平台备忘与待办应用（默认自动跟随系统语言，支持简体中文 / English / 日本語 / 한국어）。Android、Windows 桌面端与 Web / PWA 共享同一套 React 客户端；服务端采用零 CGO 单二进制 Go + SQLite（内嵌前端页面），并原生内置受控 **AI API 与 Streamable HTTP MCP** 接口。
+一款**轻量安静、离线优先、可自托管**的跨平台备忘与待办工作台（默认自动跟随系统语言，支持简体中文 / English / 日本語 / 한국어）。界面采用清晰的三栏结构，将富文本备忘（悬浮格式化面板、行距与纸张底色切换、勾选清单与图片/附件）与轻量待办整合在同一空间内；开箱即可离线记录在本机，也可随时连接零 CGO 单二进制 Go + SQLite 私人服务器，实现多端增量同步、历史版本 Diff 回溯、公开只读分享以及受控 **AI API / Streamable HTTP MCP** 接入，覆盖 **Windows 桌面端、Android 与 Web / PWA**。
+
+---
+
+## 界面预览
+
+| 备忘编辑与悬浮样式面板 | 待办管理与文件夹工作区 |
+| :---: | :---: |
+| ![Yonote 备忘编辑与悬浮样式面板](docs/assets/screenshot-notes.jpg) | ![Yonote 待办管理与文件夹工作区](docs/assets/screenshot-todos.png) |
 
 ---
 

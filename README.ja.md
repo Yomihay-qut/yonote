@@ -11,7 +11,15 @@
   <a href="https://github.com/Yomihay-qut/yonote/releases"><img alt="Releases" src="https://img.shields.io/github/v/release/Yomihay-qut/yonote" /></a>
 </p>
 
-**セルフホスト対応・オフラインファースト**のクロスプラットフォームメモ＆タスクアプリです（システム／ブラウザ言語を自動判別し、簡体字中国語・English・日本語・한국어 に対応）。Android・Windows デスクトップ・Web / PWA で共通の React クライアントを使用し、サーバーは CGO 不要の単一バイナリ Go + SQLite（Web UI 内蔵）と権限スコープ付き **AI API / Streamable HTTP MCP** を標準搭載しています。
+**シンプルで落ち着いた、オフラインファースト・セルフホスト対応**のクロスプラットフォームメモ＆タスクワークスペースです（システム／ブラウザ言語を自動判別し、簡体字中国語・English・日本語・한국어 に対応）。見やすい 3 カラム構成に、リッチテキストメモ（フローティング書式パネル、行間・用紙背景の切り替え、チェックリスト、画像・添付ファイル）と軽快なタスク管理を統合。サーバーなしでもそのままローカルでオフライン利用でき、CGO 不要の単一バイナリ Go + SQLite サーバーに接続すれば、マルチデバイス差分同期、履歴 Diff 比較・復元、閲覧専用共有、権限制御付き **AI API / Streamable HTTP MCP** 連携を **Windows デスクトップ・Android・Web / PWA** で利用できます。
+
+---
+
+## 画面プレビュー
+
+| メモ編集＆フローティングスタイルパネル | タスク管理＆フォルダーワークスペース |
+| :---: | :---: |
+| ![Yonote メモ編集とスタイルパネル](docs/assets/screenshot-notes.jpg) | ![Yonote タスク管理画面](docs/assets/screenshot-todos.png) |
 
 ---
 

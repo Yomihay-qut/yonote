@@ -11,7 +11,15 @@
   <a href="https://github.com/Yomihay-qut/yonote/releases"><img alt="Releases" src="https://img.shields.io/github/v/release/Yomihay-qut/yonote" /></a>
 </p>
 
-A **self-hosted, offline-first**, cross-platform notes & tasks app (automatically following your system language across Simplified Chinese / English / Japanese / Korean). Android, Windows Desktop, and Web / PWA share the same React client, backed by a zero-CGO single-binary Go + SQLite server (with embedded Web UI) and built-in scoped **AI REST API & Streamable HTTP MCP** support.
+A **calm, offline-first, self-hosted** cross-platform workspace for notes and tasks (automatically matching your system language across Simplified Chinese / English / Japanese / Korean). Built around a clean three-pane layout, Yonote brings rich-text note taking (floating formatting toolbar, line spacing, adaptive paper tints, checklists, images, and attachments) together with lightweight task tracking. Use it completely offline out of the box, or connect to a zero-CGO single-binary Go + SQLite server for incremental cloud sync, version history diffs, read-only public sharing, and scoped **AI REST API & Streamable HTTP MCP** access across **Windows Desktop, Android, and Web / PWA**.
+
+---
+
+## Screenshots
+
+| Notes Editor & Floating Style Panel | Tasks & Folder Workspace |
+| :---: | :---: |
+| ![Yonote Notes Editor and Floating Style Panel](docs/assets/screenshot-notes.jpg) | ![Yonote Tasks and Folder Workspace](docs/assets/screenshot-todos.png) |
 
 ---
 
