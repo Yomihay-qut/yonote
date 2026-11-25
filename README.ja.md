@@ -1,6 +1,15 @@
-# Yonote
+# Yonote（メモ）
 
 [简体中文](README.md) | [English](README.en.md) | 日本語 | [한국어](README.ko.md)
+
+<p>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg" /></a>
+  <img alt="Go 1.25" src="https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white" />
+  <img alt="React 19" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" />
+  <img alt="Tauri 2" src="https://img.shields.io/badge/Windows-Tauri%202-FFC131?logo=tauri&logoColor=black" />
+  <img alt="Capacitor 8" src="https://img.shields.io/badge/Android-Capacitor%208-3DDC84?logo=android&logoColor=white" />
+  <a href="https://github.com/Yomihay-qut/yonote/releases"><img alt="Releases" src="https://img.shields.io/github/v/release/Yomihay-qut/yonote" /></a>
+</p>
 
 Yonote は、セルフホスト対応のクロスプラットフォーム向けメモ＆タスク管理アプリです。Windows デスクトップ、Android、Web（PWA）に対応しています。データは既定でローカルに保存され、オフラインのまま読み書きできるほか、自身のサーバーを運用して複数端末間で同期できます。
 

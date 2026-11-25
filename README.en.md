@@ -2,6 +2,15 @@
 
 [简体中文](README.md) | English | [日本語](README.ja.md) | [한국어](README.ko.md)
 
+<p>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg" /></a>
+  <img alt="Go 1.25" src="https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white" />
+  <img alt="React 19" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" />
+  <img alt="Tauri 2" src="https://img.shields.io/badge/Windows-Tauri%202-FFC131?logo=tauri&logoColor=black" />
+  <img alt="Capacitor 8" src="https://img.shields.io/badge/Android-Capacitor%208-3DDC84?logo=android&logoColor=white" />
+  <a href="https://github.com/Yomihay-qut/yonote/releases"><img alt="Releases" src="https://img.shields.io/github/v/release/Yomihay-qut/yonote" /></a>
+</p>
+
 Yonote is a self-hosted, cross-platform application for notes and tasks, available on Windows, Android, and the web (PWA). Data is stored locally by default for full offline use and synchronizes across devices when connected to your own server.
 
 ![Notes editor](docs/assets/screenshot-notes.jpg)

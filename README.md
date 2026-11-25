@@ -1,6 +1,15 @@
-# Yonote
+# 便签 · Yonote
 
 简体中文 | [English](README.en.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
+
+<p>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg" /></a>
+  <img alt="Go 1.25" src="https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white" />
+  <img alt="React 19" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" />
+  <img alt="Tauri 2" src="https://img.shields.io/badge/Windows-Tauri%202-FFC131?logo=tauri&logoColor=black" />
+  <img alt="Capacitor 8" src="https://img.shields.io/badge/Android-Capacitor%208-3DDC84?logo=android&logoColor=white" />
+  <a href="https://github.com/Yomihay-qut/yonote/releases"><img alt="Releases" src="https://img.shields.io/github/v/release/Yomihay-qut/yonote" /></a>
+</p>
 
 Yonote 是一款可自托管的跨平台备忘与待办应用，提供 Windows 桌面端、Android 客户端与网页端（PWA）。数据默认存储在本地，可在离线状态下正常使用；部署私人服务端后，支持在多台设备间同步。
 

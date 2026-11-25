@@ -1,6 +1,15 @@
-# Yonote
+# Yonote (메모)
 
 [简体中文](README.md) | [English](README.en.md) | [日本語](README.ja.md) | 한국어
+
+<p>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg" /></a>
+  <img alt="Go 1.25" src="https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white" />
+  <img alt="React 19" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" />
+  <img alt="Tauri 2" src="https://img.shields.io/badge/Windows-Tauri%202-FFC131?logo=tauri&logoColor=black" />
+  <img alt="Capacitor 8" src="https://img.shields.io/badge/Android-Capacitor%208-3DDC84?logo=android&logoColor=white" />
+  <a href="https://github.com/Yomihay-qut/yonote/releases"><img alt="Releases" src="https://img.shields.io/github/v/release/Yomihay-qut/yonote" /></a>
+</p>
 
 Yonote는 Windows 데스크톱, Android 클라이언트, 웹(PWA)을 지원하는 셀프 호스팅 크로스 플랫폼 메모 및 할 일 애플리케이션입니다. 데이터는 기본적으로 로컬에 저장되어 오프라인 환경에서도 정상적으로 사용할 수 있으며, 개인 서버를 배포해 연결하면 여러 기기 간에 동기화됩니다.
 
